@@ -841,7 +841,8 @@ function textIn(str, x, y, px, fontName, t, tin, tout, o = {}){
   ctx.font = `${px * S}px ${fontName}, 'Noto Color Emoji'`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.letterSpacing = `${((o.track ?? .02) + (1 - pin) * (o.trackIn ?? .12)) * px * S}px`;
-  const sc = 1 + (1 - pin) * (o.pop ?? .18) + (o.beat ? .04 * Math.exp(-((t % B) / B) * 6) : 0);
+  const fit = Math.min(1, W * .88 / Math.max(1, ctx.measureText(str).width));
+  const sc = fit * (1 + (1 - pin) * (o.pop ?? .18) + (o.beat ? .04 * Math.exp(-((t % B) / B) * 6) : 0));
   ctx.translate(x, y + (1 - pin) * (o.rise ?? 0) * S); ctx.scale(sc, sc);
   ctx.shadowColor = o.glow || 'rgba(0,0,0,.6)'; ctx.shadowBlur = 28 * S;
   ctx.fillStyle = o.fill || '#fff';
