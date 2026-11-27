@@ -617,69 +617,113 @@ composer.addPass(renderPass); composer.addPass(bloom); composer.addPass(new Outp
 // framing: vertical keeps the subject by widening the vertical field of view
 function setFov(f){ cam.fov = V ? Math.min(78, f * 1.85) : f; cam.updateProjectionMatrix(); }
 
-// ================================================================ animation
+// ================================================================ animation — "Christmas Party from Space" (45 s, 128 BPM)
+const B = 60 / 128, BAR = B * 4;
+const DUR = 45;
+const inR = (t, a, b) => t >= a && t < b;
+const beatPh = t => (t / B) * Math.PI;
+const PARTY = t => (inR(t, 7.5, 30) || inR(t, 33.75, 39.4)) ? 1 : 0;
+
+// ---- extra set pieces ----
+// disco ball + coloured party lights around the station
+const disco = new THREE.Mesh(new THREE.IcosahedronGeometry(.32, 2), new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 1, roughness: .08, flatShading: true, envMapIntensity: 2.5 }));
+disco.position.set(1.1, 2.2, 2.1); space.add(disco);
+mesh(G.cyl(.01, .01, .9, 6), std('#888'), 1.1, 2.8, 2.1, space);
+const DISCO_COL = [0xff2d95, 0x2fd8ff, 0xffc93d, 0x7a5cff];
+const partyLights = [0, 1, 2].map(i => { const l = new THREE.PointLight(DISCO_COL[i], 0, 14, 1.6); space.add(l); return l; });
+// gift star sent to Earth
+const starShape = new THREE.Shape();
+for(let k = 0; k < 10; k++){ const r = k % 2 ? .22 : .5, a = Math.PI / 2 + k * Math.PI / 5; k ? starShape.lineTo(Math.cos(a) * r, Math.sin(a) * r) : starShape.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
+const starGeo = new THREE.ExtrudeGeometry(starShape, { depth: .12, bevelEnabled: true, bevelSize: .04, bevelThickness: .04 }); starGeo.center();
+const starMat = new THREE.MeshStandardMaterial({ color: 0xffe08a, emissive: 0xffc34d, emissiveIntensity: 4 });
+const giftStarS = new THREE.Mesh(starGeo, starMat); space.add(giftStarS);
+const giftStarV = new THREE.Mesh(starGeo, starMat); giftStarV.scale.setScalar(2.2); village.add(giftStarV);
+const starGlowS = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0xffd27a, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); space.add(starGlowS);
+const starGlowV = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0xffd27a, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false })); village.add(starGlowV);
+// fireworks over the village
+const FW_P = 260;
+const FW = [];
+{
+  const times = [];
+  for(let k = 0; k < 24; k++) times.push(18.75 + k * B * 2);              // drop 2: every half bar
+  times.push(32.85);                                                       // the gift star bursts
+  for(let k = 0; k < 12; k++) times.push(33.75 + k * B);                  // montage: every beat
+  times.forEach((t0, i) => FW.push({ t0, c: v3((rnd(i * 3.1) - .5) * 26, 11 + rnd(i * 5.3) * 8, -10 - rnd(i * 7.7) * 14), col: new THREE.Color(XMAS[i % 5]), big: i === 24 }));
+  FW[24].c.set(0, 9.2, -5.5); FW[24].col.set(0xffd27a);
+}
+const fwGeo = new THREE.BufferGeometry();
+fwGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(FW.length * FW_P * 3), 3));
+fwGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(FW.length * FW_P * 3), 3));
+const fwPts = new THREE.Points(fwGeo, new THREE.PointsMaterial({ size: .5, map: GLOW, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+fwPts.frustumCulled = false; village.add(fwPts);
+const fwLight = new THREE.PointLight(0xffffff, 0, 60, 1.2); village.add(fwLight);
+const DIRS = []; for(let j = 0; j < FW_P; j++){ const u = rnd(j * 1.9) * 2 - 1, a = rnd(j * 4.3) * Math.PI * 2, s = Math.sqrt(1 - u * u); DIRS.push([Math.cos(a) * s, u, Math.sin(a) * s, .75 + .25 * rnd(j * 8.1)]); }
+function updateFireworks(t){
+  const P = fwGeo.attributes.position, C = fwGeo.attributes.color; let flash = 0, fc = null, fp = null;
+  FW.forEach((f, i) => {
+    const age = t - f.t0, life = f.big ? 3.0 : 2.2;
+    for(let j = 0; j < FW_P; j++){
+      const k = i * FW_P + j;
+      if(age < 0 || age > life){ P.setXYZ(k, 0, -999, 0); continue; }
+      const d = DIRS[j], sp = (f.big ? 9 : 6) * d[3], r = sp * (1 - Math.exp(-age * 2.6));
+      P.setXYZ(k, f.c.x + d[0] * r, f.c.y + d[1] * r - 1.1 * age * age, f.c.z + d[2] * r);
+      const a = Math.pow(1 - age / life, 1.6) * (1 + .5 * Math.sin(age * 40 + j));
+      C.setXYZ(k, f.col.r * a * 2.2, f.col.g * a * 2.2, f.col.b * a * 2.2);
+    }
+    if(age >= 0 && age < .6){ const fl = Math.exp(-age * 6) * (f.big ? 3 : 1); if(fl > flash){ flash = fl; fc = f.col; fp = f.c; } }
+  });
+  P.needsUpdate = true; C.needsUpdate = true;
+  fwLight.intensity = flash * 50; if(fc){ fwLight.color.copy(fc); fwLight.position.copy(fp); }
+}
+
+// ---- characters ----
 function crewPose(t){
-  // idle float for everyone
   const fl = (c, home, seed) => {
     c.root.position.copy(home).add(v3(Math.sin(t * .6 + seed) * .06, Math.sin(t * .8 + seed * 2) * .1, Math.cos(t * .5 + seed) * .05));
     c.root.rotation.set(Math.sin(t * .4 + seed) * .05, 0, Math.sin(t * .5 + seed) * .06);
   };
   fl(max, CREW_HOME.max, 0); fl(luna, CREW_HOME.luna, 2); fl(kai, CREW_HOME.kai, 4);
   max.root.rotation.y = -.15; luna.root.rotation.y = .35; kai.root.rotation.y = -.45;
-
-  // ---- Max: looks at Earth, sighs; then the phone moment; then stories
-  const look = ss(1.5, 3.2, t) * (1 - ss(5.6, 6.4, t));
-  const sigh = Math.sin(clamp01((t - 3.6) / 1.6) * Math.PI) * (t < 5.2 ? 1 : 0);
-  const raise = ss(6.2, 7.0, t) * (1 - ss(17.6, 18.2, t));
-  const tap = Math.exp(-Math.pow((t - 7.35) * 9, 2)) + Math.exp(-Math.pow((t - 8.95) * 9, 2));
-  const joy = ss(9.0, 9.4, t);
-  const wave = ss(18.1, 18.5, t) * (1 - ss(24.2, 24.6, t));
-  const wv = Math.sin(t * 9) * .35;
+  const D = PARTY(t), ph = beatPh(t), bounce = Math.abs(Math.sin(ph));
+  const push = ss(30.0, 30.4, t) * (1 - ss(31.6, 32.0, t));
+  const count = inR(t, 5.6, 7.5) ? 1 : 0;
+  // Max: raise-the-roof
   pose(max, {
-    hx: look * .45 + sigh * .1 - raise * .25 * (1 - joy) + joy * -.05, hy: look * -.15,
-    lz: .2 + raise * .25, lx: -raise * 1.25, lex: -.2 - raise * 1.1,
-    rz: .2 + raise * .1 + wave * 2.3, rx: -raise * .9 - tap * .25, rex: -.25 - raise * 1.2 + wave * .4 + wave * wv,
-    bx: sigh * .12, llx: .2, rlx: -.15, lkx: .3, rkx: .25,
-    smile: lerp(1, .55, look) * (1 - joy) + joy * 1.5, blink: blinkAt(t, 1),
+    rz: .2 + D * (2.2 + .5 * Math.sin(ph)), lz: .2 + D * (2.2 - .5 * Math.sin(ph)), rex: -.2 - D * .9 * bounce, lex: -.2 - D * .9 * (1 - bounce),
+    rx: -push * 1.4, lx: -push * 1.4, llx: .2 + D * .4 * Math.sin(ph), rlx: -.15 - D * .4 * Math.sin(ph), lkx: .3 + D * .4, rkx: .25 + D * .4,
+    hz: D * .15 * Math.sin(ph), hx: -.05 + (1 - D) * ss(1, 3, t) * .35 * (1 - count), smile: D ? 1.6 : 1.1, blink: blinkAt(t, 1),
   });
-  if(t > 15.6 && t < 18.2){ max.root.rotation.y = -.15 + Math.sin((t - 15.6) * 1.2) * .2; }
-
-  // ---- Luna goes live (wave at the audience)
-  const lw = ss(11.0, 11.4, t) * (1 - ss(13.4, 13.8, t)) + wave;
+  max.root.position.y += D * bounce * .12;
+  // Luna: counts down, then hosts the live
+  const wave = Math.sin(t * 9);
   pose(luna, {
-    rz: .2 + lw * 2.4, rex: -.3 + Math.sin(t * 8) * .4 * lw, lz: .25, lex: -.5, lx: -.3 * ss(11, 11.4, t),
-    hz: Math.sin(t * 3) * .06 * lw, hx: -.05, llx: -.15, rlx: .2, lkx: .25, rkx: .35, smile: 1.35, blink: blinkAt(t, 2),
+    rz: .25 + count * 2.6 + D * (1.6 + 1.0 * Math.max(0, Math.sin(ph))), rex: -.3 - count * .3 + D * .45 * wave, lz: .25 + D * 1.2 * (.5 + .5 * Math.sin(ph + 1.5)), lex: -.5 - D * .6,
+    rx: -push * 1.4, lx: -push * 1.4 - count * .3, hz: D * .12 * Math.sin(ph), llx: -.15 + D * .3 * Math.sin(ph), rlx: .2 - D * .3 * Math.sin(ph), lkx: .25, rkx: .35, smile: 1.45, blink: blinkAt(t, 2),
   });
-  // ---- Kai dances in zero-g for a reel
-  const dance = ss(13.4, 13.7, t) * (1 - ss(15.8, 16.1, t));
-  const bt = t / BEAT * Math.PI;
+  luna.root.position.y += D * bounce * .1;
+  // Kai: zero-g spin dance
   pose(kai, {
-    rz: .3 + dance * (1.6 + .8 * Math.sin(bt)) + wave * 2.3, lz: .3 + dance * (1.6 - .8 * Math.sin(bt)) + wave * 1.8,
-    rex: -.4 - dance * .8 * Math.abs(Math.sin(bt)) + wave * wv, lex: -.4 - dance * .8 * Math.abs(Math.cos(bt)),
-    llx: dance * .7 * Math.sin(bt), rlx: -dance * .7 * Math.sin(bt), lkx: .3 + dance * .6, rkx: .3 + dance * .6,
-    hz: dance * .2 * Math.sin(bt), smile: 1.3 + dance * .3, blink: blinkAt(t, 3),
+    rz: .3 + D * (1.6 + .8 * Math.sin(ph)), lz: .3 + D * (1.6 - .8 * Math.sin(ph)), rex: -.4 - D * .8 * bounce, lex: -.4 - D * .8 * Math.abs(Math.cos(ph)),
+    rx: -push * 1.4, lx: -push * 1.4, llx: D * .7 * Math.sin(ph), rlx: -D * .7 * Math.sin(ph), lkx: .3 + D * .6, rkx: .3 + D * .6, hz: D * .2 * Math.sin(ph), smile: 1.5, blink: blinkAt(t, 3),
   });
-  if(dance > 0){ kai.root.rotation.y = -.45 + dance * (t - 13.4) * 2.6; kai.root.rotation.z = dance * Math.sin(bt * .5) * .25; }
+  if(D && !push){ kai.root.rotation.y = -.45 + (t - 7.5) * 2.4; kai.root.rotation.z = Math.sin(ph * .5) * .25; }
 }
-
 function familyPose(t){
-  const wave = ss(20.6, 21.0, t);
+  const D = (inR(t, 18.75, 30) || inR(t, 33.75, 40)) ? 1 : 0, ph = beatPh(t);
+  const awe = ss(32.6, 32.9, t) * (1 - ss(33.6, 33.75, t)), lookUp = inR(t, 30, 33.75) ? 1 : 0;
   FAMILY.forEach((p, i) => {
-    const ph = t * 8 + i;
-    const w = wave * (i === 3 ? 0 : 1);
-    const jump = (i === 2) ? Math.max(0, Math.sin(t * 6.5)) * .18 * wave : 0;
-    p.root.position.y = jump;
+    const o = i % 2 ? Math.PI / 2 : 0, b = Math.abs(Math.sin(ph + o));
+    p.root.position.y = D * b * (i === 2 || i === 3 ? .22 : .12);
     pose(p, {
-      rz: .15 + w * (2.3 + .15 * Math.sin(i)), rex: -.2 + Math.sin(ph) * .45 * w,
-      lz: .15 + (i === 5 ? w * 2.2 : 0), lex: i === 5 ? -.2 + Math.cos(ph) * .4 * w : -.25,
-      hx: -.18 - (i >= 2 && i <= 3 ? .12 : 0), hy: -.12, hz: Math.sin(t * 2 + i) * .05,
-      smile: 1.4, blink: blinkAt(t, i + 5),
+      rz: .15 + D * (1.4 + 1.2 * (.5 + .5 * Math.sin(ph + i))) + awe * 2.6, lz: .15 + D * (1.4 + 1.2 * (.5 + .5 * Math.sin(ph + i + Math.PI))) + awe * 2.6,
+      rex: -.25 - D * .7 * b, lex: -.25 - D * .7 * (1 - b), hx: -.15 - lookUp * .45 - (1 - D) * (1 - lookUp) * .1, hy: -.1, hz: D * .14 * Math.sin(ph + i),
+      llx: D * .25 * Math.sin(ph + i), rlx: -D * .25 * Math.sin(ph + i), smile: D || awe ? 1.6 : 1.3, blink: blinkAt(t, i + 5),
     });
-    if(i === 3) pose(p, { rx: -1.2, rex: -1.2, rz: .2, lz: .15, hx: -.1, smile: 1.5, blink: blinkAt(t, 9) });
+    if(i === 3 && !D && !awe) pose(p, { rx: -1.2, rex: -1.2, rz: .2, lz: .15, hx: -.1 - lookUp * .4, smile: 1.5, blink: blinkAt(t, 9) });
   });
 }
 
-// ---- UI drawing on canvases ----
+// ---- holograms / UI ----
 function rr(g, x, y, w, h, r){ g.beginPath(); g.roundRect(x, y, w, h, r); }
 function drawLogoMark(g, cx, cy, s, col = '#f7f5f2'){
   const k = Math.max(0, s) / 172; if(k <= 0) return; g.save(); g.fillStyle = col; g.translate(cx, cy);
@@ -687,261 +731,238 @@ function drawLogoMark(g, cx, cy, s, col = '#f7f5f2'){
     g.fillRect(-72.5 * k, -62 * k, 24 * k, 104 * k); g.beginPath(); g.roundRect(-45.5 * k, -86 * k, 53 * k, 22 * k, [22 * k, 0, 0, 0]); g.fill(); g.restore(); }
   g.restore();
 }
-function drawPhoneUI(t){
-  const g = phoneCv.getContext('2d'), w = 256, h = 512;
-  g.fillStyle = '#0d0b10'; g.fillRect(0, 0, w, h);
-  const p = clamp01((t - 7.4) / 1.2);
-  if(t < 9.0){
-    const bg = g.createLinearGradient(0, 0, 0, h); bg.addColorStop(0, '#1b1a22'); bg.addColorStop(1, '#0d0b10'); g.fillStyle = bg; g.fillRect(0, 0, w, h);
-    rr(g, 60, 90, 136, 136, 30); g.fillStyle = '#1d1916'; g.fill(); drawLogoMark(g, 128, 158, 80);
-    g.fillStyle = '#fff'; g.font = '700 34px IDBold'; g.textAlign = 'center'; g.fillText('ulu', 128, 275);
-    g.font = '300 16px IDLight'; g.fillStyle = 'rgba(255,255,255,.7)'; g.fillText('Closer than ever', 128, 300);
-    if(t < 7.4){ rr(g, 68, 340, 120, 46, 23); g.fillStyle = '#2f8bff'; g.fill(); g.fillStyle = '#fff'; g.font = '700 20px IDBold'; g.fillText('GET', 128, 370); }
-    else if(p < 1){ g.strokeStyle = 'rgba(255,255,255,.2)'; g.lineWidth = 6; g.beginPath(); g.arc(128, 362, 22, 0, 7); g.stroke();
-      g.strokeStyle = '#2f8bff'; g.beginPath(); g.arc(128, 362, 22, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2); g.stroke(); }
-    else { rr(g, 68, 340, 120, 46, 23); g.fillStyle = '#2f8bff'; g.fill(); g.fillStyle = '#fff'; g.font = '700 20px IDBold'; g.fillText('OPEN', 128, 370); }
-  } else {
-    const bg = g.createLinearGradient(0, 0, 0, h); bg.addColorStop(0, '#2a1d14'); bg.addColorStop(1, '#120d0a'); g.fillStyle = bg; g.fillRect(0, 0, w, h);
-    drawLogoMark(g, 128, 220, 90 * backOut((t - 9.0) / .5));
-    g.globalAlpha = ss(9.3, 9.6, t); g.fillStyle = '#ffcf6b'; g.font = '500 18px IDMed'; g.textAlign = 'center'; g.fillText('Happy Holidays, Max!', 128, 330); g.globalAlpha = 1;
-  }
+function drawPhoneUI(){
+  const g = phoneCv.getContext('2d'); const bg = g.createLinearGradient(0, 0, 0, 512); bg.addColorStop(0, '#2a1d14'); bg.addColorStop(1, '#120d0a');
+  g.fillStyle = bg; g.fillRect(0, 0, 256, 512); drawLogoMark(g, 128, 200, 90);
+  g.fillStyle = '#ff2d55'; rr(g, 78, 300, 100, 40, 12); g.fill(); g.fillStyle = '#fff'; g.font = '700 22px IDBold'; g.textAlign = 'center'; g.fillText('LIVE', 128, 328);
   phoneTex.needsUpdate = true;
 }
-function drawAppHolo(t, a){
-  const g = appHolo.g, w = 360, h = 640; g.clearRect(0, 0, w, h);
-  appHolo.m.visible = a > 0; if(a <= 0) return;
-  g.globalAlpha = a;
-  rr(g, 8, 8, w - 16, h - 16, 40); g.strokeStyle = 'rgba(140,210,255,.9)'; g.lineWidth = 4; g.stroke();
-  g.fillStyle = 'rgba(60,140,255,.12)'; g.fill();
-  for(let y = 20; y < h; y += 6){ g.fillStyle = 'rgba(140,210,255,.035)'; g.fillRect(12, y, w - 24, 2); }
-  const p = clamp01((t - 7.4) / 1.2);
-  drawLogoMark(g, w / 2, 190, 120, 'rgba(230,245,255,.95)');
-  g.fillStyle = '#eaf6ff'; g.font = '700 54px IDBold'; g.textAlign = 'center'; g.fillText('ulu', w / 2, 330);
-  if(t < 9.0){
-    if(t < 7.4){ rr(g, 90, 420, 180, 64, 32); g.fillStyle = 'rgba(80,170,255,.85)'; g.fill(); g.fillStyle = '#fff'; g.font = '700 28px IDBold'; g.fillText('GET', w / 2, 463); }
-    else { g.strokeStyle = 'rgba(140,210,255,.25)'; g.lineWidth = 9; g.beginPath(); g.arc(w / 2, 452, 34, 0, 7); g.stroke();
-      g.strokeStyle = '#8fd6ff'; g.beginPath(); g.arc(w / 2, 452, 34, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2); g.stroke();
-      g.fillStyle = '#eaf6ff'; g.font = '500 22px IDMed'; g.fillText(p < 1 ? Math.round(p * 100) + '%' : '✓', w / 2, 460); }
-  } else {
-    g.fillStyle = '#ffd98a'; g.font = '500 26px IDMed'; g.fillText('Installed ✓', w / 2, 455);
-  }
-  g.globalAlpha = 1; appHolo.tex.needsUpdate = true;
-}
+drawPhoneUI();
+const COMMENTS = [['Emma', 'London is dancing with you! 🎄'], ['Yuki', 'Tokyo party mode ✨'], ['Omar', 'Dubai says hi 👋'], ['Amara', 'Best Christmas ever 😍'], ['Lucas', 'São Paulo 🔥🔥🔥'], ['Priya', 'Mumbai loves you 💛'], ['Min-jun', 'Seoul is watching 🎅'], ['Sofia', 'Feliz Navidad from Madrid 🎉']];
 function drawLiveHolo(t, a){
   const g = liveHolo.g, w = 480, h = 608; g.clearRect(0, 0, w, h);
-  liveHolo.m.visible = a > 0; if(a <= 0) return; g.globalAlpha = a;
-  rr(g, 8, 8, w - 16, h - 16, 36); g.strokeStyle = 'rgba(255,130,170,.9)'; g.lineWidth = 4; g.stroke(); g.fillStyle = 'rgba(255,60,120,.08)'; g.fill();
-  rr(g, 32, 32, 130, 52, 14); g.fillStyle = '#ff2d55'; g.fill(); g.fillStyle = '#fff'; g.font = '700 30px IDBold'; g.textAlign = 'left'; g.fillText('LIVE', 66, 70);
-  g.beginPath(); g.arc(50, 58, 7, 0, 7); g.globalAlpha = a * (.5 + .5 * Math.sin(t * 9)); g.fill(); g.globalAlpha = a;
-  const v = Math.floor(1200 + Math.pow(clamp01((t - 11) / 2.4), 1.5) * 128000);
-  rr(g, 176, 32, 190, 52, 14); g.fillStyle = 'rgba(0,0,0,.45)'; g.fill(); g.fillStyle = '#fff'; g.font = '500 26px IDMed'; g.fillText('👁 ' + (v / 1000).toFixed(1) + 'K', 196, 68);
-  const C = [['Emma', 'Merry Christmas from London! 🎄'], ['Yuki', 'Hello from Tokyo ✨'], ['Omar', 'Greetings from Dubai 👋'], ['Amara', 'You look amazing up there 😍'], ['Lucas', 'Hi from São Paulo 🎅'], ['Priya', 'Happy holidays from Mumbai 💛']];
-  const n = Math.floor(Math.max(0, t - 11.2) / .35);
-  g.font = '400 22px IDLight';
-  for(let j = 0; j < 4; j++){
-    const idx = n - j; if(idx < 0) continue;
-    const y = h - 60 - j * 58; g.globalAlpha = a * (1 - j / 4);
-    const [nm, tx] = C[idx % C.length];
-    const tw = g.measureText(nm + '  ' + tx).width + 40;
-    rr(g, 28, y - 30, Math.min(tw, w - 56), 46, 23); g.fillStyle = 'rgba(0,0,0,.45)'; g.fill();
-    g.fillStyle = '#ffcf6b'; g.font = '700 22px IDBold'; g.fillText(nm, 46, y + 1);
-    const nw = g.measureText(nm + '  ').width; g.fillStyle = '#fff'; g.font = '400 22px IDLight'; g.fillText(tx, 46 + nw, y + 1);
+  liveHolo.m.visible = a > 0; if(a <= 0){ liveHolo.tex.needsUpdate = true; return; }
+  g.globalAlpha = a;
+  rr(g, 8, 8, w - 16, h - 16, 36); g.strokeStyle = 'rgba(255,130,170,.95)'; g.lineWidth = 5; g.stroke(); g.fillStyle = 'rgba(255,60,120,.1)'; g.fill();
+  if(t < 7.5){
+    const n = 3 - Math.floor((t - 5.625) / B);
+    g.fillStyle = '#fff'; g.textAlign = 'center'; g.font = '500 30px IDMed'; g.fillText('CHRISTMAS PARTY', w / 2, 120); g.fillText('FROM SPACE 🎄', w / 2, 160);
+    const k = ((t - 5.625) % B) / B; g.save(); g.translate(w / 2, 360); g.scale(1.4 - .4 * easeOut(k * 3), 1.4 - .4 * easeOut(k * 3));
+    g.font = '700 230px IDBold'; g.fillStyle = '#ffcf6b'; g.fillText(n > 0 ? String(n) : 'GO', 0, 80); g.restore();
+  } else {
+    rr(g, 32, 32, 130, 52, 14); g.fillStyle = '#ff2d55'; g.fill(); g.fillStyle = '#fff'; g.font = '700 30px IDBold'; g.textAlign = 'left'; g.fillText('LIVE', 66, 70);
+    g.beginPath(); g.arc(50, 58, 7, 0, 7); g.fill();
+    const v = Math.floor(3200 + Math.pow(clamp01((t - 7.5) / 6), 1.4) * 2400000);
+    rr(g, 176, 32, 230, 52, 14); g.fillStyle = 'rgba(0,0,0,.5)'; g.fill(); g.fillStyle = '#fff'; g.font = '500 26px IDMed';
+    g.fillText('👁 ' + (v >= 1e6 ? (v / 1e6).toFixed(2) + 'M' : (v / 1000).toFixed(1) + 'K'), 196, 68);
+    const n = Math.floor((t - 7.5) / .28);
+    for(let j = 0; j < 6; j++){
+      const idx = n - j; if(idx < 0) continue;
+      const y = h - 52 - j * 56; g.globalAlpha = a * (1 - j / 6);
+      const [nm, tx] = COMMENTS[idx % COMMENTS.length];
+      g.font = '400 22px IDLight'; const tw = g.measureText(nm + '  ' + tx).width + 40;
+      rr(g, 28, y - 30, Math.min(tw, w - 56), 46, 23); g.fillStyle = 'rgba(0,0,0,.5)'; g.fill();
+      g.fillStyle = '#ffcf6b'; g.font = '700 22px IDBold'; g.fillText(nm, 46, y + 1);
+      const nw = g.measureText(nm + '  ').width; g.fillStyle = '#fff'; g.font = '400 22px IDLight'; g.fillText(tx, 46 + nw, y + 1);
+    }
   }
   g.globalAlpha = 1; liveHolo.tex.needsUpdate = true;
 }
 function drawReelHolo(t, a){
   const g = reelHolo.g, w = 400, h = 700; g.clearRect(0, 0, w, h);
-  reelHolo.m.visible = a > 0; if(a <= 0) return; g.globalAlpha = a;
+  reelHolo.m.visible = a > 0; if(a <= 0){ reelHolo.tex.needsUpdate = true; return; }
+  g.globalAlpha = a;
   rr(g, 8, 8, w - 16, h - 16, 40); g.strokeStyle = 'rgba(130,230,255,.95)'; g.lineWidth = 5; g.stroke();
   g.fillStyle = '#fff'; g.font = '700 26px IDBold'; g.textAlign = 'left'; g.fillText('Reels', 34, 58);
-  const likes = (98.2 + clamp01((t - 13.4) / 2.4) * 41).toFixed(1) + 'K';
-  g.textAlign = 'center'; g.font = '500 20px IDMed';
-  g.fillStyle = '#ff3d6e'; g.font = '700 46px IDBold'; g.fillText('♥', w - 46, h * .55); g.fillStyle = '#fff'; g.font = '500 20px IDMed'; g.fillText(likes, w - 46, h * .55 + 30);
-  g.font = '700 40px IDBold'; g.fillText('💬', w - 46, h * .66); g.font = '500 20px IDMed'; g.fillText('8.4K', w - 46, h * .66 + 30);
-  g.textAlign = 'left'; g.fillStyle = '#fff'; g.font = '700 24px IDBold'; g.fillText('@kai.in.orbit', 30, h - 92);
-  g.font = '400 21px IDLight'; g.fillText('Zero-gravity holiday dance 🎄🚀', 30, h - 62);
-  g.fillStyle = 'rgba(255,255,255,.3)'; g.fillRect(30, h - 36, w - 60, 4); g.fillStyle = '#fff'; g.fillRect(30, h - 36, (w - 60) * clamp01((t - 13.4) / 2.4), 4);
+  g.textAlign = 'center'; g.fillStyle = '#ff3d6e'; g.font = '700 46px IDBold'; g.fillText('♥', w - 46, h * .55);
+  g.fillStyle = '#fff'; g.font = '500 20px IDMed'; g.fillText((180 + clamp01((t - 9.4) / 1.8) * 820).toFixed(0) + 'K', w - 46, h * .55 + 30);
+  g.textAlign = 'left'; g.font = '700 24px IDBold'; g.fillText('@kai.in.orbit', 30, h - 92);
+  g.font = '400 21px IDLight'; g.fillText('Zero-g Christmas dance 🎄🚀', 30, h - 62);
+  g.fillStyle = 'rgba(255,255,255,.3)'; g.fillRect(30, h - 36, w - 60, 4); g.fillStyle = '#fff'; g.fillRect(30, h - 36, (w - 60) * clamp01((t - 9.375) / 1.875), 4);
   g.globalAlpha = 1; reelHolo.tex.needsUpdate = true;
 }
 function drawScreenUI(t){
   const g = screenUI.g, w = 660, h = 412; g.clearRect(0, 0, w, h);
   rr(g, 18, 18, 110, 40, 10); g.fillStyle = '#ff2d55'; g.fill(); g.fillStyle = '#fff'; g.font = '700 24px IDBold'; g.textAlign = 'left'; g.fillText('LIVE', 46, 47);
-  rr(g, 138, 18, 200, 40, 10); g.fillStyle = 'rgba(0,0,0,.5)'; g.fill(); g.fillStyle = '#fff'; g.font = '500 20px IDMed'; g.fillText('🛰  from the ISS', 152, 45);
+  rr(g, 138, 18, 230, 40, 10); g.fillStyle = 'rgba(0,0,0,.5)'; g.fill(); g.fillStyle = '#fff'; g.font = '500 20px IDMed'; g.fillText('👁 2.4M  ·  from orbit', 152, 45);
   drawLogoMark(g, w - 44, 44, 40);
   screenUI.tex.needsUpdate = true;
 }
 
-// ---- shot list ----
+// ---- shots ----
+const L0 = CREW_HOME.luna, K0 = CREW_HOME.kai, M0 = CREW_HOME.max, CREW_C = v3(1.1, .75, 2.6);
+const orbitCam = (c, r, a, y) => c.clone().add(v3(Math.sin(a) * r, y, Math.cos(a) * r));
+const EARTH_PT = () => earth.position.clone().add(v3(0, EARTH_R, 0).applyAxisAngle(v3(1, 0, 0), .55));
+const SHOTS = [
+  [0, 5.6, k => ({ s: space, p: vlerp(v3(34, 12, 64), v3(3.8, 1.4, 7.4), easeInOut(k)), l: vlerp(v3(0, -2, 0), CREW_C, easeInOut(k)), f: lerp(42, 34, k) })],
+  [5.6, 7.5, k => ({ s: space, p: L0.clone().add(v3(lerp(1.0, .55, k), 1.05, lerp(3.2, 2.5, k))), l: L0.clone().add(v3(-.55, 1.0, 0)), f: 32 })],
+  [7.5, 9.375, k => ({ s: space, p: orbitCam(L0.clone().add(v3(-.4, 0, 0)), 3.4, lerp(.5, -.2, k), 1.1), l: L0.clone().add(v3(-.5, .9, 0)), f: 36 })],
+  [9.375, 11.25, k => ({ s: space, p: orbitCam(K0, 4.0, lerp(-.4, .4, k), lerp(1.3, .9, k)), l: K0.clone().add(v3(0, .75, 0)), f: 34 })],
+  [11.25, 13.125, k => ({ s: space, p: M0.clone().add(v3(lerp(-1.1, -.4, k), lerp(1.5, 1.2, k), lerp(3.8, 3.1, k))), l: M0.clone().add(v3(0, .85, 0)), f: 36 })],
+  [13.125, 15, k => ({ s: space, p: vlerp(v3(.4, 2.0, 10.5), v3(1.6, 1.4, 8.4), k), l: CREW_C, f: 40 })],
+  [15, 17.2, k => { const e = easeIn((k * 2.2 - .2) / 2.0); const tgt = EARTH_PT();
+    return { s: space, p: vlerp(v3(1.0, 2.0, 8.5), tgt.clone().add(v3(0, 4, 6)), e), l: vlerp(CREW_C, tgt, ss(0, .6, e)), f: lerp(38, 58, e) }; }],
+  [17.2, 18.75, k => ({ s: village, p: vlerp(v3(0, 24, 34), v3(3, 5.5, 15), easeOut(k)), l: v3(0, 3, -5), f: 40 })],
+  [18.75, 20.625, k => ({ s: village, p: vlerp(v3(7, 3.4, 15), v3(5, 3.0, 13), k), l: v3(0, 6.5, -7), f: 44 })],
+  [20.625, 22.5, k => ({ s: village, p: vlerp(v3(.4, 1.9, 6.9), v3(.6, 1.7, 6.0), k), l: v3(-.1, 1.3, 0), f: 38 })],
+  [22.5, 24.375, k => ({ s: space, p: orbitCam(CREW_C, 6.2, lerp(.6, .1, k), 1.2), l: CREW_C, f: 40 })],
+  [24.375, 26.25, k => ({ s: village, p: vlerp(v3(3.6, .9, 4.6), v3(3.0, 1.0, 4.0), k), l: v3(1.9, 1.1, -.6), f: 40 })],
+  [26.25, 28.125, k => ({ s: space, p: vlerp(v3(12, 5, 20), v3(9, 3.5, 16), k), l: v3(0, -1.5, 0), f: 42 })],
+  [28.125, 30, k => ({ s: village, p: vlerp(v3(-6, 3.2, 13), v3(-4.5, 2.6, 11), k), l: v3(0, 4.5, -4), f: 44 })],
+  [30, 31.875, k => ({ s: space, p: vlerp(v3(2.6, 1.7, 7.6), v3(2.2, 1.4, 6.6), k), l: CREW_C.clone().add(v3(0, .2, 0)), f: 38 })],
+  [31.875, 33.75, k => ({ s: village, p: vlerp(v3(1.8, 1.3, 8.4), v3(1.2, 1.5, 7.6), k), l: vlerp(v3(0, 10, -5), v3(0, 6, -4), ss(.3, .75, k)), f: 46 })],
+];
+const MONTAGE = [
+  k => ({ s: village, p: v3(.5, 1.8, lerp(6.4, 5.8, k)), l: v3(0, 1.3, 0), f: 38 }),
+  k => ({ s: space, p: orbitCam(K0, 3.6, lerp(.6, 1.2, k), 1.0), l: K0.clone().add(v3(0, .75, 0)), f: 36 }),
+  k => ({ s: village, p: v3(lerp(-3, -2, k), 3, 14), l: v3(0, 8, -8), f: 46 }),
+  k => ({ s: space, p: orbitCam(M0, 3.2, lerp(-.5, -.1, k), 1.2), l: M0.clone().add(v3(0, .85, 0)), f: 36 }),
+  k => ({ s: village, p: v3(3.4, 1.0, lerp(4.6, 4.0, k)), l: v3(1.9, 1.0, -.5), f: 40 }),
+  k => ({ s: space, p: vlerp(v3(.5, 2.2, 11.5), v3(1.5, 1.6, 9), k), l: CREW_C, f: 40 }),
+];
 function shot(t){
-  // returns { scene, camPos, camLook, fov }
-  const M = CREW_HOME.max;
-  if(t < 6.0){                                   // S1: wide -> Max at the window
-    const k = easeInOut(t / 6.0);
-    return { scene: space, pos: vlerp(v3(13, 4.5, 21), v3(3.9, 1.35, 7.6), k), look: vlerp(v3(0, -1, 0), M.clone().add(v3(0, .9, 0)), k), fov: lerp(40, 32, k) };
-  }
-  if(t < 11.0){                                  // S2: close on Max + phone
-    const k = easeInOut((t - 6.0) / 5.0);
-    return { scene: space, pos: M.clone().add(v3(lerp(1.3, .9, k), lerp(1.35, 1.2, k), lerp(3.7, 3.1, k))), look: M.clone().add(v3(lerp(-.05, -.2, k), lerp(1.0, 1.05, k), .2)), fov: 32 };
-  }
-  if(t < 13.4){                                  // S3a: Luna live
-    const k = easeInOut((t - 11.0) / 2.4); const L = CREW_HOME.luna;
-    return { scene: space, pos: L.clone().add(v3(lerp(1.4, .6, k), lerp(1.3, 1.0, k), lerp(3.6, 3.0, k))), look: L.clone().add(v3(-.35, .95, 0)), fov: 32 };
-  }
-  if(t < 15.8){                                  // S3b: Kai dance
-    const k = easeInOut((t - 13.4) / 2.4); const K = CREW_HOME.kai;
-    const a = lerp(-.5, .35, k);
-    return { scene: space, pos: K.clone().add(v3(Math.sin(a) * 4.2, lerp(1.4, .9, k), Math.cos(a) * 4.2)), look: K.clone().add(v3(0, .75, 0)), fov: 34 };
-  }
-  if(t < 18.0){                                  // S3c: Max + story bubbles
-    const k = easeInOut((t - 15.8) / 2.2);
-    return { scene: space, pos: M.clone().add(v3(lerp(-1.2, -.4, k), lerp(1.6, 1.2, k), lerp(3.9, 3.2, k))), look: M.clone().add(v3(0, .85, 0)), fov: 36 };
-  }
-  if(t < 19.9){                                  // S4a: crew waves, then dive to Earth along the beam
-    const k = easeIn((t - 18.4) / 1.5);
-    const p0 = v3(1.0, 2.0, 8.5), target = earth.position.clone().add(v3(0, EARTH_R, 0).applyAxisAngle(v3(1, 0, 0), .55));
-    const pos = vlerp(p0, target.clone().add(v3(0, 4, 6)), k);
-    const look = vlerp(v3(1.0, .6, 2.6), target, ss(0, .6, k));
-    return { scene: space, pos, look, fov: lerp(36, 55, k) };
-  }
-  if(t < 24.6){                                  // S4b: village
-    const k = easeOut((t - 19.9) / 2.3), k2 = easeInOut((t - 22.2) / 2.4);
-    const up = easeIn((t - 23.9) / .7);
-    const pos = vlerp(v3(2, 26, 30), v3(.6, 2.1, 7.6), k).add(v3(0, -k2 * .2 + up * 10, -k2 * .9));
-    const look = vlerp(v3(0, 0, -4), v3(-.1, 1.85, -.6), k).add(v3(0, up * 25, -up * 5));
-    return { scene: village, pos, look, fov: 38 };
-  }
-  // S5: logo in space
-  const k = easeOut((t - 24.6) / 5.4);
+  for(const [a, b, fn] of SHOTS) if(t < b){ const r = fn(clamp01((t - a) / (b - a))); return { scene: r.s, pos: r.p, look: r.l, fov: r.f }; }
+  if(t < 39.375){ const i = Math.min(5, Math.floor((t - 33.75) / (BAR / 2))); const r = MONTAGE[i](((t - 33.75) % (BAR / 2)) / (BAR / 2)); return { scene: r.s, pos: r.p, look: r.l, fov: r.f }; }
+  const k = easeOut((t - 39.375) / 5.6);
   return { scene: space, pos: v3(34 + lerp(2, 0, k), lerp(-3.6, -4.0, k), lerp(42, 36, k)), look: v3(34, -4.9, 20), fov: 34 };
 }
-
-// logo placement for S5
 const LOGO_AT = v3(34, -4.5, 24);
 
 // ================================================================ text overlay
 function textIn(str, x, y, px, fontName, t, tin, tout, o = {}){
-  const inD = o.inD || .6, outD = o.outD || .45;
+  const inD = o.inD || .35, outD = o.outD || .3;
   const a = ss(tin, tin + inD, t) * (1 - ss(tout, tout + outD, t));
   if(a <= .002) return;
   const pin = easeOut((t - tin) / inD), pout = ss(tout, tout + outD, t);
   ctx.save();
   ctx.globalAlpha = a * (o.alpha ?? 1);
-  const blur = ((1 - pin) * (o.blur ?? 12) + pout * 8) * S;
+  const blur = ((1 - pin) * (o.blur ?? 10) + pout * 8) * S;
   ctx.filter = blur > .3 ? `blur(${blur.toFixed(1)}px)` : 'none';
   ctx.font = `${px * S}px ${fontName}, 'Noto Color Emoji'`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.letterSpacing = `${((o.track || 0) + (1 - pin) * (o.trackIn ?? .08)) * px * S}px`;
-  ctx.translate(x, y + (1 - pin) * (o.rise ?? 20) * S - pout * 12 * S);
-  if(o.glow){ ctx.shadowColor = o.glow; ctx.shadowBlur = 26 * S; }
+  ctx.letterSpacing = `${((o.track ?? .02) + (1 - pin) * (o.trackIn ?? .12)) * px * S}px`;
+  const sc = 1 + (1 - pin) * (o.pop ?? .18) + (o.beat ? .04 * Math.exp(-((t % B) / B) * 6) : 0);
+  ctx.translate(x, y + (1 - pin) * (o.rise ?? 0) * S); ctx.scale(sc, sc);
+  ctx.shadowColor = o.glow || 'rgba(0,0,0,.6)'; ctx.shadowBlur = 28 * S;
   ctx.fillStyle = o.fill || '#fff';
   ctx.fillText(str, 0, 0);
   ctx.restore();
 }
 function overlay(t){
-  const cx = W / 2;
-  const low = V ? H * .78 : H * .82;
-  const glow = 'rgba(255,200,140,.55)';
-  textIn('Far from home this Christmas?', cx, V ? H * .2 : H * .15, V ? 64 : 58, 'IDLight', t, 1.3, 5.3, { glow });
-  textIn('Download Ulu.', cx, low, V ? 76 : 66, 'IDBold', t, 9.2, 10.8, { glow });
-  textIn('Go live.', cx, low, V ? 80 : 70, 'IDBold', t, 11.3, 13.2, { glow: 'rgba(255,90,140,.6)' });
-  textIn('Make reels.', cx, low, V ? 80 : 70, 'IDBold', t, 13.7, 15.6, { glow: 'rgba(90,200,255,.6)' });
-  textIn('Share your stories.', cx, low, V ? 80 : 70, 'IDBold', t, 16.0, 17.8, { glow });
-  textIn('Connect with everyone.', cx, V ? H * .14 : H * .12, V ? 66 : 60, 'IDMed', t, 21.0, 23.7, { glow });
-  textIn('Everywhere.', cx, V ? H * .14 + 84 * S : H * .12 + 74 * S, V ? 66 : 60, 'IDLight', t, 21.5, 23.7, { glow });
+  const cx = W / 2, low = V ? H * .8 : H * .83, top = V ? H * .16 : H * .14;
+  const big = V ? 92 : 80, gold = 'rgba(255,190,110,.65)';
+  textIn('CHRISTMAS EVE.', cx, top, V ? 74 : 64, 'IDBold', t, 1.0, 5.3, { glow: gold, pop: .05, track: .12 });
+  textIn('400 km above home.', cx, top + (V ? 86 : 74) * S, V ? 54 : 46, 'IDLight', t, 1.6, 5.3, { pop: .03 });
+  const words = [['GO LIVE.', 7.5, 9.2, 'rgba(255,60,130,.75)'], ['MAKE REELS.', 9.375, 11.1, 'rgba(60,200,255,.75)'], ['SHARE STORIES.', 11.25, 12.95, gold], ['PARTY WITH THE WORLD.', 13.125, 14.85, 'rgba(160,110,255,.75)']];
+  words.forEach(([s, a, b, g]) => textIn(s, cx, low, big, 'IDBold', t, a, b, { glow: g, beat: true }));
+  textIn('Meanwhile, on Earth…', cx, top, V ? 64 : 56, 'IDLight', t, 17.4, 18.6, { pop: .04 });
+  textIn('ONE PARTY.', cx, low, big, 'IDBold', t, 18.75, 20.45, { glow: gold, beat: true });
+  textIn('EVERY CORNER OF THE WORLD.', cx, low, V ? 70 : 72, 'IDBold', t, 22.5, 24.2, { glow: 'rgba(60,200,255,.75)', beat: true });
+  textIn('2.4 MILLION WATCHING.', cx, low, big, 'IDBold', t, 26.25, 27.95, { glow: 'rgba(255,60,130,.75)', beat: true });
+  textIn('Distance', cx, top, V ? 70 : 62, 'IDLight', t, 30.2, 33.5, { pop: .04 });
+  textIn('means nothing.', cx, top + (V ? 84 : 72) * S, V ? 70 : 62, 'IDBold', t, 31.0, 33.5, { glow: gold, pop: .04 });
+  [['CONNECT.', 33.75], ['CELEBRATE.', 35.625], ['TOGETHER.', 37.5]].forEach(([s, a]) => textIn(s, cx, H / 2, V ? 120 : 110, 'IDBold', t, a, a + BAR - .2, { glow: gold, beat: true, pop: .3 }));
   // end card
   const wy = V ? H * .6 : H * .66;
-  textIn('ulu', cx, wy, V ? 190 : 150, 'IDBold', t, 25.7, 99, { glow: 'rgba(255,225,180,.55)', track: -.02, trackIn: .2, blur: 16 });
-  textIn('Closer than ever.', cx, wy + (V ? 150 : 115) * S, V ? 54 : 46, 'IDLight', t, 26.3, 99, { glow: V ? 'rgba(0,0,0,.85)' : glow });
-  const ca = ss(27.1, 27.6, t);
+  textIn('ulu', cx, wy, V ? 190 : 150, 'IDBold', t, 40.4, 99, { glow: 'rgba(255,225,180,.55)', track: -.02, trackIn: .2, blur: 16, inD: .6 });
+  textIn('Closer than ever.', cx, wy + (V ? 150 : 115) * S, V ? 54 : 46, 'IDLight', t, 41.0, 99, { glow: 'rgba(0,0,0,.85)', inD: .6, pop: .04 });
+  const ca = ss(41.8, 42.3, t);
   if(ca > 0){
     const cw = (V ? 420 : 360) * S, ch = (V ? 92 : 78) * S, y = wy + (V ? 270 : 210) * S;
-    ctx.save(); ctx.globalAlpha = ca; ctx.translate(cx, y + (1 - easeOut((t - 27.1) / .5)) * 16 * S);
-    const pulse = 1 + .025 * Math.exp(-(((t - 27.1) % BEAT) / BEAT) * 5) * (t > 27.6 ? 1 : 0); ctx.scale(pulse, pulse);
+    ctx.save(); ctx.globalAlpha = ca; ctx.translate(cx, y + (1 - easeOut((t - 41.8) / .5)) * 16 * S);
+    const pulse = 1 + .03 * Math.exp(-((t % B) / B) * 5); ctx.scale(pulse, pulse);
     ctx.shadowColor = 'rgba(255,220,170,.6)'; ctx.shadowBlur = 36 * S; ctx.fillStyle = '#f7f5f2';
     ctx.beginPath(); ctx.roundRect(-cw / 2, -ch / 2, cw, ch, ch / 2); ctx.fill();
     ctx.shadowBlur = 0; ctx.fillStyle = '#1d1916'; ctx.font = `${(V ? 38 : 32) * S}px IDBold`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('Download now', 0, 2 * S); ctx.restore();
   }
-  textIn('✦  Happy Holidays  ✦', cx, V ? H * .1 : H * .09, V ? 36 : 30, 'IDMed', t, 27.5, 99, { fill: '#ffcf6b', track: .12 });
-  // transitions: flash to white into and out of the village
-  const flash = ss(19.55, 19.9, t) * (1 - ss(19.9, 20.4, t)) + ss(24.25, 24.6, t) * (1 - ss(24.6, 25.1, t));
-  if(flash > 0){ ctx.save(); ctx.globalAlpha = flash; ctx.fillStyle = '#f4f8ff'; ctx.fillRect(0, 0, W, H); ctx.restore(); }
-  const fadeIn = 1 - ss(0, .9, t);
-  if(fadeIn > 0){ ctx.save(); ctx.globalAlpha = fadeIn; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); ctx.restore(); }
+  textIn('✦  Happy Holidays  ✦', cx, V ? H * .1 : H * .09, V ? 36 : 30, 'IDMed', t, 42.2, 99, { fill: '#ffcf6b', track: .12, pop: .05 });
+  // beat flashes on cuts + transitions
+  const cuts = [7.5, 18.75, 33.75, 35.625, 37.5];
+  let flash = ss(16.85, 17.2, t) * (1 - ss(17.2, 17.6, t)) + ss(39.1, 39.375, t) * (1 - ss(39.375, 39.9, t));
+  cuts.forEach(c => { if(t >= c) flash = Math.max(flash, .35 * Math.exp(-(t - c) * 12)); });
+  if(flash > 0){ ctx.save(); ctx.globalAlpha = Math.min(1, flash); ctx.fillStyle = '#f4f8ff'; ctx.fillRect(0, 0, W, H); ctx.restore(); }
+  const fadeIn = 1 - ss(0, .7, t), fadeOut = ss(44.2, 45, t);
+  if(fadeIn > 0 || fadeOut > 0){ ctx.save(); ctx.globalAlpha = Math.max(fadeIn, fadeOut); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); ctx.restore(); }
 }
 
 // ================================================================ frame
+appHolo.m.visible = false;
 function render(t){
+  const ph = beatPh(t), D = PARTY(t);
   earthMat.uniforms.uT.value = t;
   earthMesh.rotation.y = .4 + t * .006;
-  station.position.set(0, 0, 0); station.rotation.set(.04 * Math.sin(t * .2), -.25, .02);
-  twinkle(stationLights, 160, t);
-  COTTAGES.forEach((c, j) => twinkle(c.userData.lights, 14, t + j, 3));
-  twinkle(treeLights, 220, t, 3.4);
+  station.rotation.set(.04 * Math.sin(t * .2), -.25, .02);
+  twinkle(stationLights, 160, t * (1 + D * 2), 3.2 + D * 1.5);
+  COTTAGES.forEach((c, j) => twinkle(c.userData.lights, 14, t * (1 + D) + j, 3));
+  twinkle(treeLights, 220, t * (1 + D * 1.5), 3.4);
   tree.userData.star.rotation.y = t * .6;
-  crewPose(t);
-  familyPose(t);
+  disco.rotation.y = t * 1.6;
+  partyLights.forEach((l, i) => {
+    const a = i / 3 * Math.PI * 2 + t * 1.2; l.position.set(1.1 + Math.cos(a) * 3, 1.5 + Math.sin(t * 2 + i), 2.6 + Math.sin(a) * 3);
+    l.color.setHex(DISCO_COL[(Math.floor(t / B) + i) % 4]); l.intensity = D * (4 + 8 * Math.exp(-((t % B) / B) * 4));
+  });
+  crewPose(t); familyPose(t); updateFireworks(t);
 
-  // phone UI + holograms
-  drawPhoneUI(t);
-  const appA = ss(7.0, 7.4, t) * (1 - ss(10.6, 11.0, t));
-  const handW = new THREE.Vector3(); max.P.L.hand.getWorldPosition(handW);
-  appHolo.m.position.copy(handW).add(v3(.05, .62, .15)); appHolo.m.lookAt(shot(t).pos);
-  appHolo.m.scale.setScalar(.6 + .4 * backOut((t - 7.0) / .5)); drawAppHolo(t, appA);
-  const liveA = ss(11.1, 11.5, t) * (1 - ss(13.3, 13.6, t));
-  liveHolo.m.position.copy(CREW_HOME.luna).add(v3(-1.15, 1.1, .2)); liveHolo.m.rotation.y = .35; drawLiveHolo(t, liveA);
-  const reelA = ss(13.5, 13.9, t) * (1 - ss(15.7, 16.0, t));
-  reelHolo.m.position.copy(CREW_HOME.kai).add(v3(0, .6, -.3)); reelHolo.m.rotation.y = -.1; drawReelHolo(t, reelA);
+  const liveA = ss(5.6, 5.9, t) * (1 - ss(9.2, 9.4, t));
+  liveHolo.m.position.copy(L0).add(v3(-1.15, 1.1, .2)); liveHolo.m.rotation.y = .35; drawLiveHolo(t, liveA);
+  const reelA = ss(9.4, 9.7, t) * (1 - ss(11.0, 11.25, t));
+  reelHolo.m.position.copy(K0).add(v3(0, .6, -.3)); reelHolo.m.rotation.y = -.1; drawReelHolo(t, reelA);
   storyBubbles.forEach((s, i) => {
-    const a = ss(15.9 + i * .08, 16.3 + i * .08, t) * (1 - ss(17.7, 18.0, t));
-    const ang = i / 6 * Math.PI * 2 + (t - 15.8) * .8;
-    s.position.copy(CREW_HOME.max).add(v3(Math.cos(ang) * 1.1, .95 + Math.sin(ang * 2) * .15, Math.sin(ang) * 1.1));
-    s.material.opacity = a; s.scale.setScalar(.48 * (.5 + .5 * backOut((t - 15.9 - i * .08) / .5)) * (1 + .25 * (i === 2 ? ss(17.0, 17.3, t) : 0)));
+    const a = ss(11.3 + i * .06, 11.6 + i * .06, t) * (1 - ss(12.9, 13.125, t));
+    const ang = i / 6 * Math.PI * 2 + (t - 11.25) * 1.4;
+    s.position.copy(M0).add(v3(Math.cos(ang) * 1.15, .95 + Math.sin(ang * 2) * .15, Math.sin(ang) * 1.15));
+    s.material.opacity = a; s.scale.setScalar(.48 * (.5 + .5 * backOut((t - 11.3 - i * .06) / .4)));
   });
   hearts.forEach((h, i) => {
-    const birth = 11.4 + i * .08 + rnd(i) * .1, age = t - birth, life = 1.7;
-    const live = t < 13.6 ? 1 : 0;
-    h.visible = age > 0 && age < life && live;
+    const per = 1.1, birth = 7.5 + (i / hearts.length) * per + Math.floor(Math.max(0, t - 7.5 - (i / hearts.length) * per) / per) * per, age = t - birth;
+    h.visible = t > 7.5 && t < 15 && age >= 0 && age < per;
     if(h.visible){
-      h.position.copy(CREW_HOME.luna).add(v3(-.5 + Math.sin(age * 3 + i) * .25, .9 + age * 1.1, .5 + rnd(i + 3) * .4));
+      h.position.copy(L0).add(v3(-.6 + Math.sin(age * 3 + i) * .4, .7 + age * 1.8, .5 + rnd(i + 3) * .5));
       h.rotation.set(0, Math.sin(age * 2 + i) * .6, Math.sin(age * 4 + i) * .2);
-      h.scale.setScalar(.12 * backOut(age / .3) * (1 - ss(life - .4, life, age)));
+      h.scale.setScalar(.13 * backOut(age / .2) * (1 - ss(per - .3, per, age)));
     }
   });
-  // beam to Earth
-  const bA = ss(18.5, 18.8, t) * (1 - ss(19.8, 20.0, t));
+  // beam + gift star
+  const bA = ss(15.3, 15.6, t) * (1 - ss(17.0, 17.2, t)) + ss(30.4, 30.6, t) * (1 - ss(31.7, 31.875, t));
   beamMat.uniforms.uT.value = t; beamMat.uniforms.uA.value = bA;
-  const bStart = v3(1.1, .2, 1.4), bEnd = earth.position.clone().add(v3(0, EARTH_R, 0).applyAxisAngle(v3(1, 0, 0), .55));
-  const grow = easeOut((t - 18.5) / .6);
-  const bE = vlerp(bStart, bEnd, grow), mid = vlerp(bStart, bE, .5), len = bStart.distanceTo(bE);
-  beam.position.copy(mid); beam.scale.set(1, Math.max(len, .01), 1);
+  const bStart = v3(1.1, .9, 2.8), bEnd = EARTH_PT();
+  const grow = t < 20 ? easeOut((t - 15.3) / .6) : easeIn((t - 30.4) / 1.4);
+  const bE = vlerp(bStart, bEnd, grow), len = bStart.distanceTo(bE);
+  beam.position.copy(vlerp(bStart, bE, .5)); beam.scale.set(1, Math.max(len, .01), 1);
   beam.quaternion.setFromUnitVectors(v3(0, 1, 0), bE.clone().sub(bStart).normalize().negate());
   beam.visible = bA > 0;
-  // logo assembly
-  const asm = easeInOut((t - 24.9) / .9);
-  logo.visible = t > 24.6;
-  logo.position.copy(LOGO_AT); logo.rotation.y = Math.sin(t * .5) * .12 * ss(25.8, 27, t);
+  const sOn = inR(t, 30, 31.875);
+  giftStarS.visible = starGlowS.visible = sOn;
+  if(sOn){ const k = easeIn((t - 30.45) / 1.4); giftStarS.position.copy(vlerp(v3(1.1, 1.05, 3.2), bEnd, Math.max(0, k))); giftStarS.rotation.set(0, t * 4, Math.sin(t * 3) * .3);
+    giftStarS.scale.setScalar(.6 * backOut((t - 30) / .4)); starGlowS.position.copy(giftStarS.position); starGlowS.scale.setScalar(2.2 + .4 * Math.sin(t * 10)); }
+  const vOn = inR(t, 31.875, 32.86);
+  giftStarV.visible = starGlowV.visible = vOn;
+  if(vOn){ const k = easeOut((t - 31.875) / .98); giftStarV.position.set(0, lerp(30, 9.2, k), -5.5); giftStarV.rotation.y = t * 5; starGlowV.position.copy(giftStarV.position); starGlowV.scale.setScalar(9 + 2 * Math.sin(t * 12)); }
+  // logo assembly (locks on the downbeat at 40.31)
+  const asm = easeInOut((t - 39.45) / .86);
+  logo.visible = t > 39.375;
+  logo.position.copy(LOGO_AT); logo.rotation.y = Math.sin(t * .5) * .12 * ss(40.4, 41.5, t);
   logoPieces[0].position.set(-(1 - asm) * 4.5, (1 - asm) * 2.5, -(1 - asm) * 3); logoPieces[0].rotation.set((1 - asm) * 1.2, (1 - asm) * -2, (1 - asm) * .8);
   logoPieces[1].position.set((1 - asm) * 4.5, -(1 - asm) * 2.5, -(1 - asm) * 3); logoPieces[1].rotation.set(-(1 - asm) * 1.2, (1 - asm) * 2, -(1 - asm) * .8);
-  logo.userData.mat.emissiveIntensity = .02 + .9 * Math.exp(-Math.pow((t - 25.8) * 3, 2));
-  logo.position.y += (V ? 1.3 : .8);
-  logo.scale.setScalar(.72);
+  logo.userData.mat.emissiveIntensity = .02 + .9 * Math.exp(-Math.pow((t - 40.31) * 3, 2));
+  logo.position.y += (V ? 1.3 : .8); logo.scale.setScalar(.72);
 
-  // camera
   const sh = shot(t);
   setFov(sh.fov);
   cam.position.copy(sh.pos); cam.lookAt(sh.look);
+  // camera shake on the drops
+  const shake = (D ? .012 : 0) * Math.exp(-((t % B) / B) * 5);
+  cam.rotation.z += shake * Math.sin(t * 90); cam.rotation.x += shake * Math.cos(t * 77);
   if(sh.scene === village){ updateSnow(t, v3(cam.position.x, 0, cam.position.z - 8)); drawScreenUI(t);
-    // live feed from orbit on the big screen
     liveCam.position.set(1.1, 1.4, 9.2); liveCam.lookAt(v3(1.1, .75, 2.6)); renderer.setRenderTarget(liveRT); renderer.render(space, liveCam); renderer.setRenderTarget(null);
   }
   renderPass.scene = sh.scene;
-  bloom.strength = sh.scene === village ? .5 : .6;
+  bloom.strength = (sh.scene === village ? .55 : .6) + D * .15 * Math.exp(-((t % B) / B) * 4);
   composer.render();
 
   ctx.globalAlpha = 1; ctx.filter = 'none'; ctx.globalCompositeOperation = 'source-over';
   ctx.drawImage(renderer.domElement, 0, 0, W, H);
-  // film grain + vignette
   const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .35, W / 2, H / 2, Math.max(W, H) * .75);
   vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.45)'); ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
   overlay(t);
