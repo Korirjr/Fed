@@ -15,7 +15,7 @@ T = np.arange(N) / SR
 DROPS = [(7.5, 15.0), (18.75, 30.0), (33.75, 39.375)]
 pumpc = np.ones(N)
 for a, b in DROPS:
-    m = (T >= a) & (T < b); pumpc[m] = 1 - .72 * np.exp(-((T[m] - a) % B) / .085)
+    m = (T >= a) & (T < b); pumpc[m] = 1 - .35 * np.exp(-((T[m] - a) % B) / .085)
 
 def with_pump(buf, t0):
     i = int(t0 * SR); j = min(N, i + len(buf)); return buf[:j - i] * pumpc[i:j]
@@ -63,7 +63,7 @@ def roll(t0, t1, g=.18):
     while t0 + x < t1:
         snap(t0 + x, g * (.3 + .7 * x / (t1 - t0))); step = B / 2 if x < (t1 - t0) * .5 else (B / 4 if x < (t1 - t0) * .8 else B / 8)
         x += step; k += 1
-def impact(t0, g=.9):
+def impact(t0, g=.55):
     timpani(t0, 55, g); kick2(t0, g * .8)
     c = hp(rng.standard_normal(int(2.5 * SR)), 3500) * np.exp(-tt(2.5) / .8); place(c, t0, .14, -.2); place(np.roll(c, 400), t0, .14, .2)
 def firework(t0, g=.3):
@@ -78,13 +78,13 @@ def beep(t0, f, g=.12):
     t = tt(.2); place(np.sin(2 * np.pi * f * t) * np.exp(-t / .08) + .3 * np.sin(4 * np.pi * f * t) * np.exp(-t / .05), t0, g)
 
 C = lambda *ns: [note_hz(n) for n in ns]
-def melody(seq, t0, unit, g=.16, lead=True, oct=1, bells=True):
+def melody(seq, t0, unit, g=.16, lead=False, oct=1, bells=True):
     t = t0
     for nm, u in seq:
         if nm != 'r':
             f = note_hz(nm) * 2 ** oct
             if lead: supersaw([f], t, t + u * unit * .9, g * .9, 4500, pump=False, voices=5, rel=.12)
-            if bells: place(celesta(f, 1.4, 1.0), t, g * .8, .2); place(glock(f, 1.2), t, g * .3, -.2)
+            if bells: place(celesta(f, 1.4, 1.0), t, g * 1.25, .1); place(glock(f, 1.2), t, g * .45, -.1); place(celesta(f / 2, 1.2, .5), t, g * .35, 0)
         t += u * unit
 
 # ---------------------------------------------------------------- 0–7.5: intro + countdown
@@ -94,10 +94,10 @@ for i, (t0, ch) in enumerate([(0, C('C3', 'G3', 'E4', 'G4')), (BAR, C('A2', 'E3'
 jb = [('E5', 1), ('E5', 1), ('E5', 2), ('E5', 1), ('E5', 1), ('E5', 2), ('E5', 1), ('G5', 1), ('C5', 1.5), ('D5', .5), ('E5', 4)]
 melody(jb, .9, B * .5, .15, lead=False)
 for k in range(16): jingle(.9 + k * B / 2, .05 + .004 * k, .3 * (-1) ** k)
-riser(2.5, 7.45, .35)
+riser(4.0, 7.45, .18)
 for i, f in enumerate([880, 880, 880]): beep(5.625 + i * B, f, .32)
 beep(5.625 + 3 * B, 1760, .36)
-roll(5.625, 7.42, .34)
+roll(6.56, 7.42, .16)
 for k in range(8): hat2(5.625 + k * B / 2, .04 + .01 * k)
 
 # ---------------------------------------------------------------- drops
@@ -105,17 +105,18 @@ def groove(a, b, chords, bass_roots, fills=True):
     nb = int(round((b - a) / B))
     for k in range(nb):
         tb = a + k * B
-        kick2(tb, .62)
-        if k % 2 == 1: clap2(tb, .26)
-        hat2(tb + B / 2, .07, op=True)
-        for q in range(4): jingle(tb + q * B / 4, .09 if q % 2 == 0 else .05, .3 * (-1) ** q)
+        kick2(tb, .38)
+        if k % 2 == 1: clap2(tb, .14)
+        hat2(tb + B / 2, .035, op=True)
+        for q in range(2): jingle(tb + q * B / 2, .07 if q == 0 else .045, .3 * (-1) ** q)
     for i, ch in enumerate(chords):
         t0 = a + i * BAR
         if t0 >= b: break
-        supersaw(ch, t0, min(b, t0 + BAR), .2, 3800, att=.01, rel=.1)
+        supersaw(ch, t0, min(b, t0 + BAR), .11, 2200, att=.08, rel=.3)
+        strings(ch, t0, min(b, t0 + BAR), .12, 2400, att=.15, rel=.4)
         for e8 in range(8):
-            sub(bass_roots[i], t0 + e8 * B / 2, B / 2 * .9, .34)
-    if fills: roll(b - B, b - .02, .12)
+            if e8 % 2 == 0: place(pizz(bass_roots[i] * 2, .6), t0 + e8 * B / 2, .3)
+    pass
 
 # DROP 1 (7.5–15): Jingle Bells — C | Am | F G | C
 impact(7.5)
@@ -129,7 +130,7 @@ supersaw(C('F2', 'C3', 'A3', 'F4'), 15.0, 16.875, .15, pump=False, att=.05, swee
 supersaw(C('G2', 'D3', 'B3', 'F4'), 16.875, 18.74, .15, pump=False, att=.1, sweep=lambda x: 600 + 4500 * ss(17, 18.7, x) ** 2)
 melody([('F5', 1), ('F5', 1), ('F5', 1.5), ('F5', .5), ('F5', 1), ('E5', 1), ('E5', 1), ('E5', .5), ('E5', .5)], 15.0, B, .1, lead=False)
 zap(15.3, .18); whoosh(15.4, 1.6, 300, 9000, .3)
-riser(16.9, 18.7, .22); roll(17.3, 18.72, .18)
+riser(16.9, 18.7, .14)
 
 # DROP 2 (18.75–30): Deck the Halls + fireworks
 impact(18.75)
@@ -139,7 +140,7 @@ groove(18.75, 30.0, [C('C3', 'G3', 'E4', 'G4'), C('F2', 'C3', 'A3', 'F4'), C('G2
        [note_hz(n) for n in ('C2', 'F1', 'G1', 'C2', 'C2', 'F1')])
 melody(deck, 18.75, B, .17)
 melody(deck[:8], 18.75 + 4 * BAR, B, .17)
-for k in range(24): firework(18.75 + k * B * 2, .22)
+for k in range(6): firework(18.75 + k * BAR, .1)
 
 # BREAKDOWN (30–33.75): Silent Night, the gift star
 supersaw(C('C3', 'G3', 'E4', 'G4'), 30.0, 31.875, .12, pump=False, att=.4)
@@ -147,14 +148,14 @@ supersaw(C('G2', 'D3', 'B3', 'F4'), 31.875, 33.74, .12, pump=False, att=.2, swee
 choir(C('E4', 'G4', 'C5'), 30.0, 31.9, .07, 'oo'); choir(C('D4', 'G4', 'B4'), 31.9, 33.7, .07, 'oo')
 melody([('G5', 1.5), ('A5', .5), ('G5', 1), ('E5', 3), ('G5', 1.5), ('A5', .5), ('G5', 1), ('E5', 2)], 30.0, B * .75, .13, lead=False)
 whoosh(30.4, 1.4, 400, 6000, .22); zap(30.45, .12)
-firework(32.85, .55); sparkle(32.9, 10, .07, .8, 2093)
-roll(33.0, 33.73, .2); riser(32.9, 33.73, .18)
+firework(32.85, .3); sparkle(32.9, 10, .07, .8, 2093)
+riser(32.9, 33.73, .12)
 
 # FINAL DROP (33.75–39.375): Jingle Bells, all in
 impact(33.75)
 groove(33.75, 39.375, [C('C3', 'G3', 'E4', 'G4'), C('A2', 'E3', 'C4', 'E4'), C('F2', 'C3', 'A3', 'F4')], [note_hz(n) for n in ('C2', 'A1', 'F1')], fills=False)
 melody([('E5', 1), ('E5', 1), ('E5', 2), ('E5', 1), ('E5', 1), ('E5', 2), ('E5', 1), ('G5', 1), ('C5', 1.5), ('D5', .5)], 33.75, B, .18)
-for k in range(12): firework(33.75 + k * B, .14)
+for k in range(6): firework(33.75 + k * B * 2, .07)
 whoosh(38.9, .5, 500, 9000, .3)
 
 # LOGO (39.375–45)
@@ -179,7 +180,7 @@ L, R = reverb(L, 2.2, .2, 1), reverb(R, 2.2, .2, 2)
 fade = np.clip(T / .4, 0, 1) * np.clip((45 - T) / 1.4, 0, 1)
 L, R = L * fade, R * fade
 pk = max(np.abs(L).max(), np.abs(R).max()); L, R = L / pk, R / pk
-L, R = np.tanh(L * 2.2) / np.tanh(2.2), np.tanh(R * 2.2) / np.tanh(2.2)
+L, R = np.tanh(L * 1.3) / np.tanh(1.3), np.tanh(R * 1.3) / np.tanh(1.3)
 L, R = L * .9, R * .9
 pcm = (np.stack([L, R], 1) * 32767).astype(np.int16)
 with wave.open(sys.argv[1] if len(sys.argv) > 1 else 'party.wav', 'wb') as w:

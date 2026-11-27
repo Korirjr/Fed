@@ -645,11 +645,11 @@ const FW_P = 260;
 const FW = [];
 {
   const times = [];
-  for(let k = 0; k < 24; k++) times.push(18.75 + k * B * 2);              // drop 2: every half bar
+  for(let k = 0; k < 6; k++) times.push(18.75 + k * BAR);                 // drop 2: one per bar
   times.push(32.85);                                                       // the gift star bursts
-  for(let k = 0; k < 12; k++) times.push(33.75 + k * B);                  // montage: every beat
-  times.forEach((t0, i) => FW.push({ t0, c: v3((rnd(i * 3.1) - .5) * 26, 11 + rnd(i * 5.3) * 8, -10 - rnd(i * 7.7) * 14), col: new THREE.Color(XMAS[i % 5]), big: i === 24 }));
-  FW[24].c.set(0, 9.2, -5.5); FW[24].col.set(0xffd27a);
+  for(let k = 0; k < 6; k++) times.push(33.75 + k * B * 2);               // finale: every 2 beats
+  times.forEach((t0, i) => FW.push({ t0, c: v3((rnd(i * 3.1) - .5) * 26, 11 + rnd(i * 5.3) * 8, -10 - rnd(i * 7.7) * 14), col: new THREE.Color(XMAS[i % 5]), big: false }));
+  FW[6].c.set(0, 9.2, -5.5); FW[6].col.set(0xffd27a); FW[6].big = true;
 }
 const fwGeo = new THREE.BufferGeometry();
 fwGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(FW.length * FW_P * 3), 3));
@@ -803,12 +803,9 @@ const SHOTS = [
   [15, 17.2, k => { const e = easeIn((k * 2.2 - .2) / 2.0); const tgt = EARTH_PT();
     return { s: space, p: vlerp(v3(1.0, 2.0, 8.5), tgt.clone().add(v3(0, 4, 6)), e), l: vlerp(CREW_C, tgt, ss(0, .6, e)), f: lerp(38, 58, e) }; }],
   [17.2, 18.75, k => ({ s: village, p: vlerp(v3(0, 24, 34), v3(3, 5.5, 15), easeOut(k)), l: v3(0, 3, -5), f: 40 })],
-  [18.75, 20.625, k => ({ s: village, p: vlerp(v3(7, 3.4, 15), v3(5, 3.0, 13), k), l: v3(0, 6.5, -7), f: 44 })],
-  [20.625, 22.5, k => ({ s: village, p: vlerp(v3(.4, 1.9, 6.9), v3(.6, 1.7, 6.0), k), l: v3(-.1, 1.3, 0), f: 38 })],
-  [22.5, 24.375, k => ({ s: space, p: orbitCam(CREW_C, 6.2, lerp(.6, .1, k), 1.2), l: CREW_C, f: 40 })],
-  [24.375, 26.25, k => ({ s: village, p: vlerp(v3(3.6, .9, 4.6), v3(3.0, 1.0, 4.0), k), l: v3(1.9, 1.1, -.6), f: 40 })],
-  [26.25, 28.125, k => ({ s: space, p: vlerp(v3(12, 5, 20), v3(9, 3.5, 16), k), l: v3(0, -1.5, 0), f: 42 })],
-  [28.125, 30, k => ({ s: village, p: vlerp(v3(-6, 3.2, 13), v3(-4.5, 2.6, 11), k), l: v3(0, 4.5, -4), f: 44 })],
+  [18.75, 22.5, k => ({ s: village, p: vlerp(v3(6, 3.6, 16), v3(.6, 1.8, 6.6), easeInOut(k)), l: vlerp(v3(0, 6, -7), v3(-.1, 1.4, 0), easeInOut(k)), f: lerp(44, 38, k) })],
+  [22.5, 26.25, k => ({ s: space, p: orbitCam(CREW_C, 6.4, lerp(.7, -.1, k), 1.2), l: CREW_C, f: 40 })],
+  [26.25, 30, k => ({ s: village, p: vlerp(v3(-5.5, 3.0, 12.5), v3(-3.5, 2.2, 9.5), easeInOut(k)), l: v3(0, 4, -4), f: 44 })],
   [30, 31.875, k => ({ s: space, p: vlerp(v3(2.6, 1.7, 7.6), v3(2.2, 1.4, 6.6), k), l: CREW_C.clone().add(v3(0, .2, 0)), f: 38 })],
   [31.875, 33.75, k => ({ s: village, p: vlerp(v3(1.8, 1.3, 8.4), v3(1.2, 1.5, 7.6), k), l: vlerp(v3(0, 10, -5), v3(0, 6, -4), ss(.3, .75, k)), f: 46 })],
 ];
@@ -822,7 +819,7 @@ const MONTAGE = [
 ];
 function shot(t){
   for(const [a, b, fn] of SHOTS) if(t < b){ const r = fn(clamp01((t - a) / (b - a))); return { scene: r.s, pos: r.p, look: r.l, fov: r.f }; }
-  if(t < 39.375){ const i = Math.min(5, Math.floor((t - 33.75) / (BAR / 2))); const r = MONTAGE[i](((t - 33.75) % (BAR / 2)) / (BAR / 2)); return { scene: r.s, pos: r.p, look: r.l, fov: r.f }; }
+  if(t < 39.375){ const i = Math.min(2, Math.floor((t - 33.75) / BAR)); const r = MONTAGE[[0, 5, 2][i]](((t - 33.75) % BAR) / BAR); return { scene: r.s, pos: r.p, look: r.l, fov: r.f }; }
   const k = easeOut((t - 39.375) / 5.6);
   return { scene: space, pos: v3(34 + lerp(2, 0, k), lerp(-3.6, -4.0, k), lerp(42, 36, k)), look: v3(34, -4.9, 20), fov: 34 };
 }
@@ -842,7 +839,7 @@ function textIn(str, x, y, px, fontName, t, tin, tout, o = {}){
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.letterSpacing = `${((o.track ?? .02) + (1 - pin) * (o.trackIn ?? .12)) * px * S}px`;
   const fit = Math.min(1, W * .88 / Math.max(1, ctx.measureText(str).width));
-  const sc = fit * (1 + (1 - pin) * (o.pop ?? .18) + (o.beat ? .04 * Math.exp(-((t % B) / B) * 6) : 0));
+  const sc = fit * (1 + (1 - pin) * (o.pop ?? .18) );
   ctx.translate(x, y + (1 - pin) * (o.rise ?? 0) * S); ctx.scale(sc, sc);
   ctx.shadowColor = o.glow || 'rgba(0,0,0,.6)'; ctx.shadowBlur = 28 * S;
   ctx.fillStyle = o.fill || '#fff';
@@ -857,9 +854,9 @@ function overlay(t){
   const words = [['GO LIVE.', 7.5, 9.2, 'rgba(255,60,130,.75)'], ['MAKE REELS.', 9.375, 11.1, 'rgba(60,200,255,.75)'], ['SHARE STORIES.', 11.25, 12.95, gold], ['PARTY WITH THE WORLD.', 13.125, 14.85, 'rgba(160,110,255,.75)']];
   words.forEach(([s, a, b, g]) => textIn(s, cx, low, big, 'IDBold', t, a, b, { glow: g, beat: true }));
   textIn('Meanwhile, on Earth…', cx, top, V ? 64 : 56, 'IDLight', t, 17.4, 18.6, { pop: .04 });
-  textIn('ONE PARTY.', cx, low, big, 'IDBold', t, 18.75, 20.45, { glow: gold, beat: true });
-  textIn('EVERY CORNER OF THE WORLD.', cx, low, V ? 70 : 72, 'IDBold', t, 22.5, 24.2, { glow: 'rgba(60,200,255,.75)', beat: true });
-  textIn('2.4 MILLION WATCHING.', cx, low, big, 'IDBold', t, 26.25, 27.95, { glow: 'rgba(255,60,130,.75)', beat: true });
+  textIn('ONE PARTY.', cx, low, big, 'IDBold', t, 19.2, 22.2, { glow: gold, beat: true });
+  textIn('EVERY CORNER OF THE WORLD.', cx, low, V ? 70 : 72, 'IDBold', t, 22.7, 25.9, { glow: 'rgba(60,200,255,.75)', beat: true });
+  textIn('2.4 MILLION WATCHING.', cx, low, big, 'IDBold', t, 26.5, 29.7, { glow: 'rgba(255,60,130,.75)', beat: true });
   textIn('Distance', cx, top, V ? 70 : 62, 'IDLight', t, 30.2, 33.5, { pop: .04 });
   textIn('means nothing.', cx, top + (V ? 84 : 72) * S, V ? 70 : 62, 'IDBold', t, 31.0, 33.5, { glow: gold, pop: .04 });
   [['CONNECT.', 33.75], ['CELEBRATE.', 35.625], ['TOGETHER.', 37.5]].forEach(([s, a]) => textIn(s, cx, H / 2, V ? 120 : 110, 'IDBold', t, a, a + BAR - .2, { glow: gold, beat: true, pop: .3 }));
@@ -879,7 +876,7 @@ function overlay(t){
   }
   textIn('✦  Happy Holidays  ✦', cx, V ? H * .1 : H * .09, V ? 36 : 30, 'IDMed', t, 42.2, 99, { fill: '#ffcf6b', track: .12, pop: .05 });
   // beat flashes on cuts + transitions
-  const cuts = [7.5, 18.75, 33.75, 35.625, 37.5];
+  const cuts = [];
   let flash = ss(16.85, 17.2, t) * (1 - ss(17.2, 17.6, t)) + ss(39.1, 39.375, t) * (1 - ss(39.375, 39.9, t));
   cuts.forEach(c => { if(t >= c) flash = Math.max(flash, .35 * Math.exp(-(t - c) * 12)); });
   if(flash > 0){ ctx.save(); ctx.globalAlpha = Math.min(1, flash); ctx.fillStyle = '#f4f8ff'; ctx.fillRect(0, 0, W, H); ctx.restore(); }
@@ -894,14 +891,14 @@ function render(t){
   earthMat.uniforms.uT.value = t;
   earthMesh.rotation.y = .4 + t * .006;
   station.rotation.set(.04 * Math.sin(t * .2), -.25, .02);
-  twinkle(stationLights, 160, t * (1 + D * 2), 3.2 + D * 1.5);
-  COTTAGES.forEach((c, j) => twinkle(c.userData.lights, 14, t * (1 + D) + j, 3));
-  twinkle(treeLights, 220, t * (1 + D * 1.5), 3.4);
+  twinkle(stationLights, 160, t, 3.2);
+  COTTAGES.forEach((c, j) => twinkle(c.userData.lights, 14, t + j, 3));
+  twinkle(treeLights, 220, t, 3.4);
   tree.userData.star.rotation.y = t * .6;
   disco.rotation.y = t * 1.6;
   partyLights.forEach((l, i) => {
     const a = i / 3 * Math.PI * 2 + t * 1.2; l.position.set(1.1 + Math.cos(a) * 3, 1.5 + Math.sin(t * 2 + i), 2.6 + Math.sin(a) * 3);
-    l.color.setHex(DISCO_COL[(Math.floor(t / B) + i) % 4]); l.intensity = D * (4 + 8 * Math.exp(-((t % B) / B) * 4));
+    l.color.setHex(DISCO_COL[(Math.floor(t / B) + i) % 4]); l.intensity = D * 3.5;
   });
   crewPose(t); familyPose(t); updateFireworks(t);
 
@@ -953,13 +950,13 @@ function render(t){
   setFov(sh.fov);
   cam.position.copy(sh.pos); cam.lookAt(sh.look);
   // camera shake on the drops
-  const shake = (D ? .012 : 0) * Math.exp(-((t % B) / B) * 5);
+  const shake = 0;
   cam.rotation.z += shake * Math.sin(t * 90); cam.rotation.x += shake * Math.cos(t * 77);
   if(sh.scene === village){ updateSnow(t, v3(cam.position.x, 0, cam.position.z - 8)); drawScreenUI(t);
     liveCam.position.set(1.1, 1.4, 9.2); liveCam.lookAt(v3(1.1, .75, 2.6)); renderer.setRenderTarget(liveRT); renderer.render(space, liveCam); renderer.setRenderTarget(null);
   }
   renderPass.scene = sh.scene;
-  bloom.strength = (sh.scene === village ? .55 : .6) + D * .15 * Math.exp(-((t % B) / B) * 4);
+  bloom.strength = sh.scene === village ? .5 : .55;
   composer.render();
 
   ctx.globalAlpha = 1; ctx.filter = 'none'; ctx.globalCompositeOperation = 'source-over';
