@@ -1,4 +1,5 @@
-"""Original holiday score + sound design for the Ulu 3D film (30 s, 100 BPM).
+"""Holiday score (arranged public-domain carols: Silent Night, Jingle Bells, Deck the Halls,
+We Wish You a Merry Christmas) + sound design for the Ulu 3D film (30 s, 100 BPM).
 Synthesised from scratch: music-box celesta, Karplus-Strong pizzicato, string pad,
 formant choir, sleigh bells, timpani, and UI/space sound effects synced to scene.html.
 usage: python3 soundtrack.py out.wav
@@ -134,97 +135,145 @@ def zap(t0, g=.25):
 
 def chord(names): return [note_hz(n) for n in names]
 
-# ---------------------------------------------------------------- arrangement
-# Act 1 (0–6): wonder, then a little homesick
-strings(chord(['C3', 'G3', 'E4', 'B4']), 0.0, 3.4, .16, 1600, att=2.0)
-strings(chord(['A2', 'E3', 'C4', 'G4']), 3.3, 6.1, .16, 1500, att=1.0)
-choir(chord(['E4', 'G4', 'C5']), 0.4, 3.3, .05, 'oo')
-for i, n in enumerate(['E5', 'G5', 'C6', 'B5', 'G5', 'E5', 'D5', 'G5']):
-    place(celesta(note_hz(n)), .8 + i * BEAT, .14, -.3 + .6 * (i % 2))
-for i, n in enumerate(['A5', 'E5', 'C6', 'B5', 'A5', 'E5']):
-    place(celesta(note_hz(n), 2.2), 3.6 + i * .4, .11, .3 - .6 * (i % 2))
+# ---------------------------------------------------------------- arrangement (public-domain carols, original arrangement)
+def glock(f, dur=1.6):
+    t = tt(dur); e = np.exp(-t / .7) * np.minimum(1, t / .001)
+    return (np.sin(2 * np.pi * f * t) + .3 * np.sin(2 * np.pi * f * 2.76 * t) * np.exp(-t / .2) + .1 * np.sin(2 * np.pi * f * 5.4 * t) * np.exp(-t / .08)) * e
 
-# Act 2 (6–11): the phone, the download
-for t0, t1, c in ((6.0, 7.2, ['F2', 'C3', 'A3', 'E4']), (7.2, 8.4, ['G2', 'D3', 'B3', 'D4']), (8.4, 9.0, ['A2', 'E3', 'C4', 'E4']), (9.0, 11.0, ['C3', 'G3', 'E4', 'G4'])):
-    strings(chord(c), t0, t1, .15, 2000, att=.4, rel=.6)
-arp = ['C5', 'E5', 'G5', 'C6', 'G5', 'E5']
-for i in range(int(4.8 / (BEAT / 2))):
-    tb = 6.0 + i * BEAT / 2
-    if 7.35 < tb < 9.0: continue
-    place(celesta(note_hz(arp[i % 6]), 1.0, .5), tb, .06, .5 * (-1) ** i)
-sparkle(7.0, 6, .07, .35)
+def tubular(f, dur=4.0):
+    t = tt(dur); e = np.exp(-t / 1.4) * np.minimum(1, t / .002)
+    parts = [(1, 1), (2.76, .5), (5.4, .25), (8.93, .12), (.5, .3)]
+    return sum(a * np.sin(2 * np.pi * f * m * t) * np.exp(-t * m * .3) for m, a in parts) * e
+
+def brass(notes, t0, t1, g=.1):
+    d = t1 - t0 + .6; n = int(d * SR); t = np.arange(n) / SR
+    out = np.zeros(n)
+    for f in notes:
+        for k in range(3):
+            ph = np.cumsum(f * (1 + (k - 1) * .003) * (1 + .003 * np.sin(2 * np.pi * 5.5 * t))) / SR + rng.uniform()
+            out += 2 * (ph % 1) - 1
+    cut = 600 + 2600 * np.minimum(1, t / .25) * np.exp(-t / 2.5)
+    y = np.zeros(n); blk = 1200
+    for a in range(0, n, blk):
+        y[a:a + blk] = lp(out[max(0, a - 2400):a + blk], float(cut[min(a + blk // 2, n - 1)]))[-len(out[a:a + blk]):]
+    e = adsr(n, .08, .3, .8, .5, d)
+    place(y * e * g / len(notes), t0, 1, -.15); place(np.roll(y, 700) * e * g / len(notes), t0, 1, .15)
+
+def play(seq, t0, unit, inst, g, pan=0., oct=0, dur=None, double=None):
+    """seq = [(note|'r', units), ...]"""
+    t = t0
+    for n, u in seq:
+        if n != 'r':
+            f = note_hz(n) * 2 ** oct
+            place(inst(f, dur or max(.8, u * unit * 2)), t, g, pan)
+            if double: place(double[0](f * double[2], max(.8, u * unit * 2)), t, double[1], -pan)
+        t += u * unit
+    return t
+
+def chord(names): return [note_hz(n) for n in names]
+
+# ---- Act 1 (0–9): Silent Night on music box, soft strings + choir
+strings(chord(['C3', 'G3', 'E4', 'G4']), 0.0, 4.2, .15, 1500, att=2.2)
+choir(chord(['E4', 'G4', 'C5']), 0.6, 4.2, .05, 'oo')
+strings(chord(['G2', 'D3', 'B3', 'F4']), 4.2, 6.0, .15, 1600, att=.6)
+choir(chord(['D4', 'G4', 'B4']), 4.2, 6.0, .05, 'oo')
+strings(chord(['C3', 'G3', 'E4', 'C5']), 6.0, 7.5, .15, 1800, att=.5)
+u = .3
+silent = [('G5', 3), ('A5', 1), ('G5', 2), ('E5', 6), ('G5', 3), ('A5', 1), ('G5', 2), ('E5', 5),
+          ('D6', 3), ('D6', 1), ('B5', 5), ('C6', 3), ('C6', 1), ('G5', 4)]
+play(silent[:8], .6, u, celesta, .16, .15, double=(glock, .05, 1))
+play(silent[8:11], 4.2, u * .9, celesta, .16, -.15, double=(glock, .05, 1))
+play(silent[11:], 6.0, u * .9, celesta, .15, .1, double=(glock, .05, 1))
+# the phone: twinkles, tap, download ticks, ding, app opens
+sparkle(7.0, 6, .06, .35)
 tap(7.35)
 for i in range(10):
-    place(celesta(note_hz('C5') * 2 ** (i / 12 * 1.4), .5, .3), 7.45 + i * .12, .045, -.2 + i * .04)
+    place(glock(note_hz('C6') * 2 ** (i / 12 * 1.4), .4), 7.45 + i * .12, .035, -.2 + i * .04)
 ding(8.6)
 tap(8.95)
 for n, d in (('C5', 0), ('E5', .05), ('G5', .1), ('C6', .15), ('E6', .2)):
     place(celesta(note_hz(n), 2.4), 9.0 + d, .1, rng.uniform(-.5, .5))
-timpani(9.0, 65.4, .35)
+place(tubular(note_hz('C5')), 9.0, .08)
+strings(chord(['F2', 'C3', 'A3', 'F4']), 7.5, 9.0, .12, 1800, att=.4, rel=.4)
+strings(chord(['C3', 'G3', 'E4', 'G4']), 9.0, 10.8, .15, 2200, att=.2, rel=.4)
+strings(chord(['G2', 'D3', 'B3', 'F4']), 10.2, 11.0, .12, 2600, att=.3, rel=.2)
+# sleigh-bell shake building into the groove
+for k in range(12): jingle(9.6 + k * .12, .03 + .012 * k, .3 * (-1) ** k)
 
-# Act 3 (11–18.2): the groove — Go live / Make reels / Share stories
-prog = [(11.0, ['C3', 'G3', 'E4', 'G4'], 'C2'), (13.4, ['G2', 'D3', 'B3', 'D4'], 'G1'), (15.8, ['A2', 'E3', 'C4', 'E4'], 'A1')]
-for t0, c, b in prog:
-    strings(chord(c), t0, t0 + 2.4, .12, 2600, att=.25, rel=.4)
-    for k in range(4):
-        root = note_hz(b) * (1.5 if k == 2 else 1)
-        place(pizz(root * 2), t0 + k * BEAT, .32, -.1)
-        place(pizz(root * 3), t0 + k * BEAT + BEAT / 2, .14, .25)
-melody = ['E5', 'G5', 'A5', 'G5', 'E5', 'D5', 'C5', 'D5', 'E5', 'G5', 'C6', 'B5', 'A5', 'G5', 'E5', 'G5',
-          'A5', 'C6', 'B5', 'A5', 'G5', 'E5', 'D5', 'E5']
-for i, n in enumerate(melody):
-    place(celesta(note_hz(n), 1.4), 11.0 + i * BEAT / 2 * 1.0 + (i // 8) * 0, .1, .2 * np.sin(i))
-for b in range(int(7.2 / BEAT)):
+# ---- Act 3 (11–19.9): Jingle Bells chorus — eighth = 0.3 s, bar = 1.2 s
+e8 = .3
+jingle_bells = [('E5', 1), ('E5', 1), ('E5', 2), ('E5', 1), ('E5', 1), ('E5', 2), ('E5', 1), ('G5', 1), ('C5', 1.5), ('D5', .5), ('E5', 4),
+                ('F5', 1), ('F5', 1), ('F5', 1.5), ('F5', .5), ('F5', 1), ('E5', 1), ('E5', 1), ('E5', .5), ('E5', .5)]
+play(jingle_bells, 11.0, e8, celesta, .17, .1, oct=1, double=(glock, .06, .5))
+play([('E5', 1), ('D5', 1), ('D5', 1), ('E5', 1), ('D5', 2), ('G5', 2)], 18.2, e8 * .85, celesta, .18, -.1, oct=1, double=(glock, .07, .5))
+harm = [(11.0, ['C3', 'G3', 'E4', 'G4'], 'C2'), (12.2, ['C3', 'G3', 'E4', 'G4'], 'C2'), (13.4, ['C3', 'G3', 'E4', 'C5'], 'C2'), (14.6, ['C3', 'G3', 'E4', 'C5'], 'C2'),
+        (15.8, ['F2', 'C3', 'A3', 'F4'], 'F1'), (17.0, ['C3', 'G3', 'E4', 'G4'], 'C2'), (18.2, ['D3', 'A3', 'C4', 'F#4'], 'D2'), (19.22, ['G2', 'D3', 'B3', 'F4'], 'G1')]
+for idx, (t0, c, b) in enumerate(harm):
+    t1 = harm[idx + 1][0] if idx + 1 < len(harm) else 19.92
+    strings(chord(c), t0, t1, .11, 2600, att=.12, rel=.25)
+    bars = int(round((t1 - t0) / BEAT))
+    for k in range(bars):
+        place(pizz(note_hz(b) * (2 if k % 2 == 0 else 3)), t0 + k * BEAT, .3 if k % 2 == 0 else .2, -.1)
+for b in range(int(round((19.9 - 11.0) / BEAT))):
     tb = 11.0 + b * BEAT
-    kick(tb, .42)
-    if b % 2 == 1: snap(tb, .13)
-    jingle(tb, .16, -.35); jingle(tb + BEAT / 2, .11, .35)
+    kick(tb, .36 if tb < 18.2 else .3)
+    if b % 2 == 1: snap(tb, .12)
+    jingle(tb, .17, -.35); jingle(tb + BEAT / 2, .12, .35)
+    if tb < 18.2: jingle(tb + BEAT / 4, .05, .1); jingle(tb + 3 * BEAT / 4, .05, -.1)
 pop(11.1, .14, 700)
-for i in range(14): pop(11.45 + i * .14 + rng.uniform(0, .05), .05, 1100 + 300 * rng.uniform())
-pop(13.5, .14, 800); whoosh(13.45, .5, 600, 4000, .15)
-for i in range(6): pop(15.9 + i * .08, .09, 900 + i * 120)
-sparkle(17.0, 4, .06, .25, 2093)
+for i in range(14): pop(11.45 + i * .14 + rng.uniform(0, .05), .045, 1100 + 300 * rng.uniform())
+pop(13.5, .14, 800); whoosh(13.45, .5, 600, 4000, .13)
+for i in range(6): pop(15.9 + i * .08, .08, 900 + i * 120)
+choir(chord(['A4', 'C5', 'F#5']), 18.2, 19.2, .08); choir(chord(['B4', 'D5', 'G5']), 19.2, 19.9, .1)
+zap(18.5, .16); whoosh(18.6, 1.35, 300, 9000, .3)
+swell(18.4, 19.9, .2)
 
-# build (18.2–19.9): F → G, choir swells, beam
-strings(chord(['F2', 'C3', 'A3', 'F4', 'A4']), 18.2, 19.1, .16, 2400, att=.2, rel=.3)
-strings(chord(['G2', 'D3', 'B3', 'G4', 'B4']), 19.1, 19.95, .18, 3000, att=.1, rel=.2)
-choir(chord(['A4', 'C5', 'F5']), 18.2, 19.1, .09); choir(chord(['B4', 'D5', 'G5']), 19.1, 19.9, .11)
-zap(18.5, .2); whoosh(18.6, 1.35, 300, 9000, .35)
-swell(18.4, 19.9, .22)
-for i, x in enumerate(np.cumsum([.2 * .85 ** k for k in range(14)])):
-    if 18.6 + x < 19.88: snap(18.6 + x, .05 + .012 * i)
-
-# Act 4 (19.9–24.6): the village — big and warm
+# ---- Act 4 (19.9–24.6): Deck the Halls — big and warm in the village
 timpani(19.9, 65.4, .8)
-crash = hp(rng.standard_normal(int(3 * SR)), 4000) * np.exp(-tt(3) / .9); place(crash, 19.9, .12, -.2); place(np.roll(crash, 500), 19.9, .12, .2)
-vill = [(19.9, ['C3', 'G3', 'E4', 'G4', 'C5'], 'C2'), (21.1, ['E3', 'B3', 'E4', 'G4', 'B4'], 'E2'), (22.3, ['F2', 'C3', 'A3', 'F4', 'C5'], 'F1'), (23.5, ['G2', 'D3', 'B3', 'G4', 'D5'], 'G1')]
-for t0, c, b in vill:
-    strings(chord(c), t0, t0 + 1.2, .2, 3000, att=.15, rel=.5)
-    choir(chord(c[2:]), t0, t0 + 1.2, .06)
+place(tubular(note_hz('C5')), 19.9, .1, -.2); place(tubular(note_hz('G5')), 19.92, .07, .2)
+crash = hp(rng.standard_normal(int(3 * SR)), 4000) * np.exp(-tt(3) / .9); place(crash, 19.9, .1, -.2); place(np.roll(crash, 500), 19.9, .1, .2)
+d8 = 4.7 / 16
+deck = [('G5', 3), ('F5', 1), ('E5', 2), ('D5', 2), ('C5', 2), ('D5', 2), ('E5', 2), ('C5', 2)]
+play(deck, 19.9, d8, celesta, .17, .1, oct=1, double=(glock, .06, .5))
+play(deck, 19.9, d8, celesta, .08, -.2, dur=1.4)
+vchords = [(19.9, ['C3', 'G3', 'E4', 'G4', 'C5'], 'C2'), (21.08, ['G2', 'D3', 'B3', 'G4', 'D5'], 'G1'), (22.25, ['C3', 'G3', 'E4', 'G4', 'C5'], 'C2'), (23.43, ['F2', 'C3', 'A3', 'F4', 'C5'], 'F1')]
+for idx, (t0, c, b) in enumerate(vchords):
+    t1 = vchords[idx + 1][0] if idx + 1 < len(vchords) else 24.6
+    strings(chord(c), t0, t1, .19, 3000, att=.12, rel=.4)
+    brass(chord(c[1:4]), t0, t1, .07)
+    choir(chord(c[2:]), t0, t1, .055)
     for k in range(2):
-        place(pizz(note_hz(b) * 2), t0 + k * BEAT, .34, 0)
-    kick(t0, .45); kick(t0 + BEAT, .35)
-    jingle(t0, .14, -.3); jingle(t0 + BEAT / 2, .1, .3); jingle(t0 + BEAT, .12, -.3); jingle(t0 + BEAT * 1.5, .1, .3)
-theme = ['G5', 'C6', 'E6', 'D6', 'C6', 'B5', 'C6', 'E6', 'F6', 'E6', 'D6', 'C6', 'B5', 'D6', 'G6', 'F6']
-for i, n in enumerate(theme):
-    place(celesta(note_hz(n), 1.6, 1.1), 19.9 + i * BEAT / 2, .12, .25 * np.sin(i * 1.3))
-    place(celesta(note_hz(n) / 2, 1.2, .5), 19.9 + i * BEAT / 2, .05, -.25 * np.sin(i * 1.3))
-whoosh(24.0, .8, 400, 8000, .3)
-swell(23.9, 24.6, .18)
+        place(pizz(note_hz(b) * 2), t0 + k * (t1 - t0) / 2, .33, 0)
+    for k in range(4):
+        tb = t0 + k * (t1 - t0) / 4
+        kick(tb, .4 if k % 2 == 0 else .3)
+        if k % 2: snap(tb, .12)
+        jingle(tb, .14, -.3); jingle(tb + (t1 - t0) / 8, .09, .3)
+whoosh(24.0, .8, 400, 8000, .26)
+swell(23.9, 24.6, .16)
 
-# Act 5 (24.6–30): logo
-timpani(24.6, 87.3, .5)
-strings(chord(['F2', 'C3', 'A3', 'E4', 'A4']), 24.6, 25.85, .17, 2600, att=.3, rel=.4)
-choir(chord(['A4', 'C5', 'E5']), 24.6, 25.8, .08)
-whoosh(24.9, .9, 500, 3000, .18, -.4); whoosh(24.95, .9, 500, 3000, .18, .4)
+# ---- Act 5 (24.6–30): "Fa la la la la, la la la la" lands on the logo, then We Wish You a Merry Christmas
+timpani(24.6, 87.3, .45)
+fala = [('D5', 1), ('E5', 1), ('F5', 1), ('D5', 1), ('E5', 3), ('D5', 1), ('C5', 2), ('B4', 2)]
+play(fala, 24.6, 1.2 / 12, celesta, .17, 0, oct=1, double=(glock, .06, .5))
+strings(chord(['D3', 'A3', 'F4', 'A4']), 24.6, 25.2, .16, 2600, att=.1, rel=.2)
+strings(chord(['G2', 'D3', 'B3', 'F4', 'G4']), 25.2, 25.85, .17, 2800, att=.1, rel=.2)
+choir(chord(['B4', 'D5', 'G5']), 24.8, 25.8, .07)
+whoosh(24.9, .9, 500, 3000, .15, -.4); whoosh(24.95, .9, 500, 3000, .15, .4)
+# logo lock: the final C
 timpani(25.8, 65.4, 1.0)
+place(tubular(note_hz('C5')), 25.8, .13, -.2); place(tubular(note_hz('E5')), 25.82, .08, .2); place(tubular(note_hz('G5')), 25.84, .07, 0)
 for n, d in (('C5', 0), ('G5', .06), ('C6', .12), ('E6', .18), ('G6', .24), ('C7', .30)):
-    place(celesta(note_hz(n), 3.0, .8), 25.8 + d, .11, rng.uniform(-.6, .6))
-strings(chord(['C2', 'G2', 'E3', 'C4', 'G4', 'D5']), 25.8, 29.0, .22, 2400, att=.05, rel=1.4)
-choir(chord(['E4', 'G4', 'C5', 'E5']), 25.8, 29.0, .1)
-sparkle(26.4, 8, .05, 1.6, 2093)
-tap(27.1, .12); place(celesta(note_hz('G6'), 2.0, .5), 27.12, .08)
-for b in range(5): jingle(27.1 + b * BEAT / 2, .07 - b * .01, .3 * (-1) ** b)
+    place(celesta(note_hz(n), 3.0, .8), 25.8 + d, .1, rng.uniform(-.6, .6))
+strings(chord(['C2', 'G2', 'E3', 'C4', 'G4', 'E5']), 25.8, 29.0, .22, 2400, att=.05, rel=1.4)
+brass(chord(['C3', 'G3', 'E4']), 25.8, 27.4, .06)
+choir(chord(['E4', 'G4', 'C5', 'E5']), 25.8, 29.0, .09)
+wish = [('G5', 2), ('C6', 2), ('C6', 1), ('D6', 1), ('C6', 1), ('B5', 1), ('A5', 2), ('A5', 2)]
+play(wish, 26.5, .22, celesta, .09, .2, dur=2.0)
+play(wish, 26.5, .22, glock, .035, -.2, dur=1.6)
+sparkle(26.2, 6, .04, 1.4, 2093)
+tap(27.1, .1)
+for b in range(8): jingle(26.5 + b * BEAT / 2, .06 * (1 - b / 9), .3 * (-1) ** b)
 
 # ---------------------------------------------------------------- reverb + master
 def reverb(x, secs=2.8, mix=.28, seed=0):
