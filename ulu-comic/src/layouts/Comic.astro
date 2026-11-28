@@ -1,0 +1,64 @@
+---
+interface Props { title: string; description: string }
+const { title, description } = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>{title}</title>
+  <meta name="description" content={description} />
+  <meta name="theme-color" content="#FFE600" />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 4l6 14 15-6-5 15 14 5-14 6 6 15-15-5-6 14-6-14-15 5 5-15-14-6 14-5-5-15 15 6z' fill='%23FFE600' stroke='%23111' stroke-width='3'/%3E%3C/svg%3E" />
+  <link rel="preload" href="fonts/dela-gothic-one.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="fonts/shantell-sans-var.woff2" as="font" type="font/woff2" crossorigin />
+</head>
+<body>
+  <slot />
+</body>
+</html>
+
+<style is:global>
+@font-face{font-family:"Dela Gothic One";font-weight:400;font-display:swap;src:url(fonts/dela-gothic-one.woff2) format("woff2")}
+@font-face{font-family:"Shantell Sans";font-weight:400 800;font-display:swap;src:url(fonts/shantell-sans-var.woff2) format("woff2")}
+@font-face{font-family:"Shantell Sans";font-style:italic;font-weight:600;font-display:swap;src:url(fonts/shantell-sans-italic-600.woff2) format("woff2")}
+@font-face{font-family:"Space Mono";font-weight:400;font-display:swap;src:url(fonts/space-mono-400.woff2) format("woff2")}
+@font-face{font-family:"Space Mono";font-weight:700;font-display:swap;src:url(fonts/space-mono-700.woff2) format("woff2")}
+/* Layout concept: the page is a printed comic book — the hero is the cover,
+   every feature is a chapter drawn as panels, the FAQ is the letters page,
+   the sign-up is a clip-out coupon. One printed world: CMYK inks on white paper. */
+:root{
+  --paper:#FFFFFF;
+  --key:#111014;      /* black ink, outlines */
+  --cyan:#00AEEF;
+  --mag:#EC008C;
+  --yel:#FFE600;
+  --red:#FF3B30;
+  --skin1:#FFD7B5; --skin2:#E7A97E; --skin3:#A8673F; --skin4:#6B3E24;
+  --display:"Dela Gothic One","Arial Black",Impact,sans-serif;
+  --hand:"Shantell Sans","Comic Sans MS","Chalkboard SE",cursive;
+  --mono:"Space Mono",ui-monospace,Menlo,monospace;
+  --line:4px;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;overflow-x:clip;background:var(--key)}
+body{margin:0;background:var(--paper);color:var(--key);font-family:var(--hand);font-size:18px;line-height:1.5;overflow-x:clip}
+img,svg{display:block;max-width:100%}
+h1,h2,h3,p{margin:0}
+a{color:inherit}
+:focus-visible{outline:4px solid var(--mag);outline-offset:3px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.dots{background-image:radial-gradient(rgba(17,16,20,.22) 1.3px,transparent 1.6px);background-size:7px 7px}
+.dots-m{background-image:radial-gradient(var(--mag) 1.8px,transparent 2.1px);background-size:9px 9px}
+.dots-c{background-image:radial-gradient(var(--cyan) 1.8px,transparent 2.1px);background-size:9px 9px}
+.dots-y{background-image:radial-gradient(#E0C800 1.8px,transparent 2.1px);background-size:9px 9px}
+.speed{background:repeating-conic-gradient(from 0deg at 50% 50%,var(--key) 0 1.2deg,transparent 1.2deg 7deg);-webkit-mask:radial-gradient(circle at 50% 50%,transparent 32%,#000 72%);mask:radial-gradient(circle at 50% 50%,transparent 32%,#000 72%)}
+.misprint{text-shadow:3px 3px 0 var(--cyan),-2px -2px 0 var(--mag)}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>

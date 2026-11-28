@@ -1,0 +1,34 @@
+---
+/** Ulu, the mascot: a speech balloon that grew legs. */
+interface Props { mood?: 'grin' | 'shout' | 'cool'; class?: string; style?: string; label?: string }
+const { mood = 'grin', class: cls = '', style = '', label } = Astro.props;
+const K = 'var(--key)';
+---
+<svg class={`ulu ${cls}`} viewBox="0 0 200 230" style={style} role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : 'true'}>
+  <g stroke={K} stroke-width="5" stroke-linejoin="round" stroke-linecap="round">
+    <!-- legs + sneakers -->
+    <path class="ulu-leg l" d="M78 160 L72 200" fill="none" stroke-width="8" />
+    <path class="ulu-leg r" d="M122 160 L128 200" fill="none" stroke-width="8" />
+    <path d="M52 204 Q54 192 72 194 L80 196 Q84 206 78 210 L54 210 Q50 208 52 204Z" fill="var(--mag)" />
+    <path d="M148 204 Q146 192 128 194 L120 196 Q116 206 122 210 L146 210 Q150 208 148 204Z" fill="var(--mag)" />
+    <path d="M56 206 H78 M122 206 H144" stroke="#fff" stroke-width="3" />
+    <!-- arms -->
+    <path class="ulu-arm" d="M170 92 Q194 74 188 46" fill="none" stroke-width="8" />
+    <circle class="ulu-arm" cx="188" cy="42" r="9" fill="#fff" />
+    <path d="M30 100 Q8 112 14 138" fill="none" stroke-width="8" />
+    <circle cx="14" cy="142" r="9" fill="#fff" />
+    <!-- balloon body -->
+    <path d="M100 18 C148 18 178 50 178 92 C178 134 148 164 100 164 C88 164 78 162 68 158 L38 176 L46 146 C30 132 22 114 22 92 C22 50 52 18 100 18 Z" fill="#fff" />
+    <path d="M44 72 Q52 46 80 36" fill="none" stroke="var(--cyan)" stroke-width="6" opacity=".9" />
+    {mood === 'cool'
+      ? <><path d="M50 74 H150 L144 100 Q130 108 114 98 L106 84 H94 L86 98 Q70 108 56 100 Z" fill={K} /><path d="M62 82 L76 82" stroke="#fff" stroke-width="3" /></>
+      : <g class="ulu-eyes"><ellipse cx="78" cy="84" rx="13" ry="17" fill={K} stroke="none" /><ellipse cx="122" cy="84" rx="13" ry="17" fill={K} stroke="none" />
+          <circle cx="82" cy="78" r="4.5" fill="#fff" stroke="none" /><circle cx="126" cy="78" r="4.5" fill="#fff" stroke="none" /></g>}
+    {mood === 'shout'
+      ? <path d="M76 116 Q100 104 124 116 Q122 146 100 148 Q78 146 76 116 Z" fill={K} />
+      : <path d="M74 116 Q100 140 126 116" fill="none" stroke-width="6" />}
+    {mood === 'shout' && <path d="M88 136 Q100 128 112 136 Q100 146 88 136Z" fill="var(--red)" stroke="none" />}
+    <ellipse cx="56" cy="114" rx="9" ry="5" fill="var(--mag)" opacity=".4" stroke="none" />
+    <ellipse cx="144" cy="114" rx="9" ry="5" fill="var(--mag)" opacity=".4" stroke="none" />
+  </g>
+</svg>
