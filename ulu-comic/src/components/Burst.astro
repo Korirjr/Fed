@@ -1,0 +1,23 @@
+---
+/** Comic starburst ("POW!") drawn as an SVG polygon with alternating radii. */
+interface Props { text?: string; fill?: string; color?: string; points?: number; size?: string; rotate?: number; class?: string; style?: string; jag?: number; font?: string; id?: string }
+const { text = 'POW!', fill = 'var(--yel)', color = 'var(--key)', points = 14, size = '180px', rotate = -8, class: cls = '', style = '', jag = 0.68, font = '30', id } = Astro.props;
+// seeded wobble so each burst looks hand-cut but renders identically every build
+let seed = text.length * 97 + points;
+const rnd = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
+const pts: string[] = [];
+for (let i = 0; i < points * 2; i++) {
+  const a = (i / (points * 2)) * Math.PI * 2;
+  const r = i % 2 === 0 ? 48 - rnd() * 4 : 48 * jag - rnd() * 6;
+  pts.push(`${(50 + Math.cos(a) * r).toFixed(1)},${(50 + Math.sin(a) * r).toFixed(1)}`);
+}
+const lines = text.split('|');
+---
+<svg id={id} class={`burst ${cls}`} viewBox="-4 -4 108 108" style={`width:${size};rotate:${rotate}deg;${style}`} aria-hidden="true">
+  <polygon points={pts.join(' ')} transform="translate(3 4)" fill="var(--key)" />
+  <polygon points={pts.join(' ')} fill={fill} stroke="var(--key)" stroke-width="2.6" stroke-linejoin="round" />
+  <text x="50" y={54 - (lines.length - 1) * 7} text-anchor="middle" dominant-baseline="middle" fill={color}
+        style={`font-family:var(--display);font-size:${Number(font) / 2}px`}>
+    {lines.map((l, i) => <tspan x="50" dy={i ? '1.05em' : 0}>{l}</tspan>)}
+  </text>
+</svg>

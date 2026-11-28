@@ -1,0 +1,57 @@
+---
+/** A comic-strip character. Every person on the page is built from these props. */
+type Hair = 'spiky' | 'bob' | 'bun' | 'curly' | 'hijab' | 'cap' | 'none';
+type Mood = 'happy' | 'wow' | 'laugh' | 'smirk' | 'wink';
+interface Props {
+  skin?: string; hair?: string; hairStyle?: Hair; shirt?: string; mood?: Mood;
+  wave?: boolean; phone?: boolean; flip?: boolean; class?: string; style?: string; label?: string;
+}
+const { skin = 'var(--skin1)', hair = 'var(--key)', hairStyle = 'spiky', shirt = 'var(--cyan)', mood = 'happy',
+        wave = false, phone = false, flip = false, class: cls = '', style = '', label } = Astro.props;
+const K = 'var(--key)';
+---
+<svg class={`kid ${cls}`} viewBox="0 0 140 180" style={style} role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : 'true'}>
+  <g transform={flip ? 'translate(140 0) scale(-1 1)' : undefined} stroke={K} stroke-width="4" stroke-linejoin="round" stroke-linecap="round">
+    {hairStyle === 'hijab' && <path d="M22 132 C14 62 32 18 70 18 C108 18 126 62 118 132 Z" fill={hair} />}
+    {hairStyle === 'bob' && <path d="M27 96 C20 40 44 20 70 20 C96 20 120 40 113 96 L98 96 C100 72 94 54 70 52 C46 54 40 72 42 96 Z" fill={hair} />}
+    <!-- body -->
+    <path d="M28 182 C28 134 44 114 70 114 C96 114 112 134 112 182 Z" fill={shirt} />
+    <path d="M58 114 Q70 126 82 114" fill="none" />
+    {wave
+      ? <g class="kid-arm"><path d="M40 136 Q22 120 20 92" fill="none" stroke-width="15" /><path d="M40 136 Q22 120 20 92" fill="none" stroke={shirt} stroke-width="7" /><circle cx="20" cy="86" r="9" fill={skin} /></g>
+      : <g><path d="M38 140 Q26 160 30 182" fill="none" stroke-width="15" /><path d="M38 140 Q26 160 30 182" fill="none" stroke={shirt} stroke-width="7" /></g>}
+    {phone
+      ? <g><path d="M102 140 Q96 160 82 152" fill="none" stroke-width="15" /><path d="M102 140 Q96 160 82 152" fill="none" stroke={shirt} stroke-width="7" />
+           <rect x="70" y="126" width="22" height="36" rx="5" fill={K} transform="rotate(-12 81 144)" /><rect x="74" y="131" width="14" height="24" rx="2" fill="var(--yel)" stroke="none" transform="rotate(-12 81 144)" />
+           <circle cx="82" cy="152" r="8" fill={skin} /></g>
+      : <g><path d="M102 140 Q114 160 110 182" fill="none" stroke-width="15" /><path d="M102 140 Q114 160 110 182" fill="none" stroke={shirt} stroke-width="7" /></g>}
+    <!-- head -->
+    <rect x="62" y="98" width="16" height="16" fill={skin} stroke="none" />
+    {hairStyle !== 'hijab' && <><circle cx="32" cy="70" r="8" fill={skin} /><circle cx="108" cy="70" r="8" fill={skin} /></>}
+    {hairStyle === 'hijab'
+      ? <ellipse cx="70" cy="70" rx="30" ry="34" fill={skin} />
+      : <circle cx="70" cy="66" r="38" fill={skin} />}
+    {hairStyle === 'spiky' && <path d="M32 62 L34 36 L46 44 L48 22 L61 35 L70 14 L80 35 L92 22 L95 44 L106 36 L108 62 Q90 44 70 46 Q50 44 32 62 Z" fill={hair} />}
+    {hairStyle === 'bob' && <path d="M33 60 C36 34 52 26 70 26 C88 26 104 34 107 60 C96 50 88 42 74 44 C62 46 52 40 33 60 Z" fill={hair} />}
+    {hairStyle === 'bun' && <><circle cx="70" cy="22" r="13" fill={hair} /><path d="M33 60 C34 34 50 28 70 28 C90 28 106 34 107 60 C96 46 84 42 70 42 C56 42 44 46 33 60 Z" fill={hair} /></>}
+    {hairStyle === 'curly' && [36, 48, 60, 72, 84, 96, 104].map((x, i) => <circle cx={x} cy={i % 2 ? 30 : 38} r="11" fill={hair} />)}
+    {hairStyle === 'cap' && <><path d="M32 56 C32 30 50 24 70 24 C90 24 108 30 108 56 Z" fill={hair} /><path d="M70 56 L132 50 Q134 58 128 60 L70 62 Z" fill={hair} /><circle cx="70" cy="25" r="4" fill={K} /></>}
+    {hairStyle === 'hijab' && <path d="M40 60 C42 40 56 34 70 34 C84 34 98 40 100 60 C92 48 82 44 70 44 C58 44 48 48 40 60 Z" fill={hair} stroke="none" />}
+    <!-- face -->
+    <g class="kid-eyes">
+    {mood === 'wow' && <><circle cx="56" cy="66" r="10" fill="#fff" /><circle cx="84" cy="66" r="10" fill="#fff" /><circle cx="57" cy="67" r="4" fill={K} stroke="none" /><circle cx="85" cy="67" r="4" fill={K} stroke="none" /></>}
+    {(mood === 'happy' || mood === 'smirk') && <><ellipse cx="56" cy="66" rx="4.5" ry="6.5" fill={K} stroke="none" /><ellipse cx="84" cy="66" rx="4.5" ry="6.5" fill={K} stroke="none" /><circle cx="57.5" cy="63.5" r="1.6" fill="#fff" stroke="none" /><circle cx="85.5" cy="63.5" r="1.6" fill="#fff" stroke="none" /></>}
+    {mood === 'laugh' && <><path d="M49 68 Q56 58 63 68" fill="none" /><path d="M77 68 Q84 58 91 68" fill="none" /></>}
+    {mood === 'wink' && <><ellipse cx="56" cy="66" rx="4.5" ry="6.5" fill={K} stroke="none" /><path d="M77 67 Q84 61 91 67" fill="none" /></>}
+    </g>
+    {mood === 'smirk' && <path d="M48 54 L62 57 M78 57 L92 53" fill="none" />}
+    <ellipse cx="46" cy="82" rx="7" ry="4" fill="var(--mag)" opacity=".35" stroke="none" />
+    <ellipse cx="94" cy="82" rx="7" ry="4" fill="var(--mag)" opacity=".35" stroke="none" />
+    <path d="M70 72 q-4 7 2 8" fill="none" stroke-width="3" />
+    {mood === 'happy' && <path d="M57 86 Q70 102 83 86 Z" fill={K} />}
+    {mood === 'laugh' && <><path d="M52 84 Q70 110 88 84 Z" fill={K} /><path d="M62 96 Q70 92 78 96 Q70 104 62 96Z" fill="var(--red)" stroke="none" /></>}
+    {mood === 'wow' && <ellipse cx="70" cy="92" rx="6" ry="8" fill={K} />}
+    {mood === 'smirk' && <path d="M60 90 Q74 94 84 84" fill="none" />}
+    {mood === 'wink' && <path d="M58 88 Q70 98 82 88" fill="none" />}
+  </g>
+</svg>
