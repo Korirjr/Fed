@@ -20,7 +20,7 @@ const server = http.createServer((req, res) => {
   const page = await browser.newPage({ viewport: { width: +w, height: +h } });
   page.on('pageerror', e => console.error('[pageerror]', e.message));
   page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') console.error('[console]', m.text()); });
-  await page.goto(`http://127.0.0.1:${port}/scene.html?w=${w}&h=${h}`);
+  await page.goto(`http://127.0.0.1:${port}/${process.env.SCENE || 'scene.html'}?w=${w}&h=${h}`);
   await page.waitForFunction(() => window.READY === true, null, { timeout: 120000 });
   for (let i = start; i < end; i += step) {
     const fp = path.join(outDir, `f${String(i).padStart(4, '0')}.jpg`);
